@@ -1,25 +1,32 @@
 # diagassert Examples
 
-This directory contains practical examples demonstrating different usage patterns of diagassert.
+This directory contains practical examples demonstrating different usage
+patterns of diagassert.
 
 ## Examples
 
 ### [Basic Usage](./basic/)
+
 Simple usage patterns showing the core functionality:
+
 - Basic assertions with different expression types
 - Comparison operations
 - String operations
 - Boolean logic
 
 ### [Advanced Usage](./advanced/)
+
 Complex expressions and advanced patterns:
+
 - Nested expressions
 - Method calls
 - Struct field access
 - Complex logical combinations
 
 ### [Integration Examples](./integration/)
+
 Real-world usage scenarios:
+
 - Unit testing patterns
 - Integration with existing test suites
 - Performance considerations

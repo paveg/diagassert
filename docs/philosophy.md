@@ -59,7 +59,7 @@ Control via environment variables without increasing API surface:
 
 ### Basic Failure Output
 
-```
+```text
 ASSERTION FAILED at user_test.go:42
 Expression: age >= 18 && hasLicense
 Result: false
@@ -67,7 +67,7 @@ Result: false
 
 ### Future Enhancement (Phase 2 onwards)
 
-```
+```text
 ASSERTION FAILED at user_test.go:42
 Expression: age >= 18 && hasLicense
 Result: false
@@ -89,22 +89,26 @@ FAIL_REASON: left_operand_false
 ## Implementation Plan (Revised)
 
 ### Phase 1: Minimal Implementation (Current)
+
 - ✅ Only `Assert` and `Require`
 - ✅ Extract expressions from source code
 - ✅ Basic output
 - ✅ Configuration via environment variables
 
 ### Phase 2: Expression Evaluation
+
 - AST analysis of expressions
 - Runtime variable value retrieval
 - Build and display evaluation trees
 
 ### Phase 3: Advanced Expression Support
+
 - Display method call results
 - Display struct field values
 - Display array/slice element values
 
 ### Phase 4: Enhanced Machine Readability
+
 - Structured evaluation trees
 - Failure path tracking
 - AI tool hint generation
@@ -132,17 +136,22 @@ func TestUserPermissions(t *testing.T) {
 ## Technical Challenges and Solutions
 
 ### Challenge 1: Retrieving Expression Values at Runtime
+
 - **Solution**: Source code AST analysis + runtime reflection
 
 ### Challenge 2: Balancing Machine Readability and Simplicity
+
 - **Solution**: Hybrid output by default, controlled via environment variables
 
 ### Challenge 3: Performance
+
 - **Solution**: Detailed analysis only on failure
 
 ## Summary
 
-diagassert is a simple yet powerful assertion library that inherits power-assert's "No API is the best API" philosophy while adding machine readability for the AI era.
+diagassert is a simple yet powerful assertion library that inherits
+power-assert's "No API is the best API" philosophy while adding machine
+readability for the AI era.
 
 This design provides:
 

@@ -12,6 +12,7 @@ This example demonstrates the fundamental usage patterns of diagassert.
 ## Key Concepts
 
 ### Zero Learning Curve
+
 You don't need to learn special assertion APIs. Just use Go expressions:
 
 ```go
@@ -26,18 +27,20 @@ diagassert.Assert(t, strings.Contains(str, substr))
 ```
 
 ### Expression Display
+
 When assertions fail, you see exactly what expression was evaluated:
 
-```
+```text
 ASSERTION FAILED at main.go:45
 Expression: age >= 18 && hasLicense
 Result: false
 ```
 
 ### Machine-Readable Output
+
 By default, machine-readable sections are included for AI tools and automation:
 
-```
+```text
 [MACHINE_READABLE_START]
 EXPR: age >= 18 && hasLicense
 RESULT: false
@@ -53,4 +56,5 @@ go run main.go
 
 ## Expected Output
 
-You'll see assertion failures with detailed diagnostic information, followed by successful assertions that produce no output (as expected).
+You'll see assertion failures with detailed diagnostic information, followed by
+successful assertions that produce no output (as expected).

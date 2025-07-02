@@ -1,0 +1,10 @@
+pre-commit:
+  commands:
+    markdownlint:
+      glob: "*.md"
+      run: npx markdownlint-cli@latest {staged_files}
+    go-fmt:
+      glob: "*.go"
+      run: go fmt {staged_files}
+    go-lint:
+      run: make lint
