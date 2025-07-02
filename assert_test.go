@@ -1,48 +1,12 @@
 package diagassert
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/paveg/diagassert/internal/testutil"
 )
-
-// mockT is a mock implementation of the TestingT interface
-type mockT struct {
-	failed   bool
-	messages []string
-}
-
-func newMockT() *mockT {
-	return &mockT{
-		messages: make([]string, 0),
-	}
-}
-
-func (m *mockT) Fatal(args ...interface{}) {
-	for _, arg := range args {
-		m.messages = append(m.messages, fmt.Sprint(arg))
-	}
-	m.failed = true
-	panic("FailNow called")
-}
-
-func (m *mockT) Error(args ...interface{}) {
-	for _, arg := range args {
-		m.messages = append(m.messages, fmt.Sprint(arg))
-	}
-	m.failed = true
-}
-
-func (m *mockT) Helper() {}
-
-func (m *mockT) Failed() bool {
-	return m.failed
-}
-
-func (m *mockT) getOutput() string {
-	return strings.Join(m.messages, "\n")
-}
 
 // **Simple API: Use only Assert(t, expression)**
 
@@ -57,16 +21,16 @@ func TestAssert_SimpleAPI(t *testing.T) {
 	})
 
 	t.Run("just pass expression - false case", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 
 		// Just pass a simple expression
 		Assert(mock, false)
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert(false) should fail")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "ASSERTION FAILED") {
 			t.Errorf("Should contain failure message, got: %s", output)
 		}
@@ -77,11 +41,11 @@ func TestAssert_Expressions(t *testing.T) {
 	// power-assert philosophy: you can pass any expression as-is
 
 	t.Run("comparison", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 		Assert(mock, x > 20)
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		// The expression is displayed as-is
 		if !strings.Contains(output, "x > 20") {
 			t.Errorf("Should show expression, got: %s", output)
@@ -89,27 +53,27 @@ func TestAssert_Expressions(t *testing.T) {
 	})
 
 	t.Run("logical operations", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		age := 16
 		hasLicense := false
 
 		// Complex expressions are also displayed as-is
 		Assert(mock, age >= 18 && hasLicense)
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "age >= 18 && hasLicense") {
 			t.Errorf("Should show full expression, got: %s", output)
 		}
 	})
 
 	t.Run("method calls", func(t *testing.T) {
-		mock := newMockT()
-		user := User{Name: "Alice", Age: 16}
+		mock := testutil.NewMockT()
+		user := testutil.User{Name: "Alice", Age: 16}
 
 		// Method calls are also displayed as-is
 		Assert(mock, user.IsAdult())
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "user.IsAdult()") {
 			t.Errorf("Should show method call, got: %s", output)
 		}
@@ -119,7 +83,7 @@ func TestAssert_Expressions(t *testing.T) {
 func TestAssert_NoLearningCurve(t *testing.T) {
 	// Zero learning cost: no need to learn special matchers or APIs
 
-	mock := newMockT()
+	mock := testutil.NewMockT()
 
 	// Traditional assertion libraries require:
 	// assert.Equal(t, actual, expected)
@@ -142,7 +106,7 @@ func TestAssert_NoLearningCurve(t *testing.T) {
 	Assert(mock, condition)
 
 	// Check the output
-	output := mock.getOutput()
+	output := mock.GetOutput()
 	if !strings.Contains(output, "actual == expected") {
 		t.Error("Should show the exact expression used")
 	}
@@ -151,10 +115,10 @@ func TestAssert_NoLearningCurve(t *testing.T) {
 func TestAssert_MachineReadable(t *testing.T) {
 	t.Run("with machine readable section", func(t *testing.T) {
 		// Machine-readable section is included by default
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		Assert(mock, false)
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "[MACHINE_READABLE_START]") {
 			t.Error("Should include machine readable section by default")
 		}
@@ -165,10 +129,10 @@ func TestAssert_MachineReadable(t *testing.T) {
 		os.Setenv("DIAGASSERT_MACHINE_READABLE", "false")
 		defer os.Unsetenv("DIAGASSERT_MACHINE_READABLE")
 
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		Assert(mock, false)
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if strings.Contains(output, "[MACHINE_READABLE_START]") {
 			t.Error("Should not include machine readable section when disabled")
 		}
@@ -177,7 +141,7 @@ func TestAssert_MachineReadable(t *testing.T) {
 
 func TestRequire(t *testing.T) {
 	t.Run("should panic on failure", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 
 		defer func() {
 			if r := recover(); r == nil {
@@ -189,15 +153,7 @@ func TestRequire(t *testing.T) {
 	})
 }
 
-// Test struct
-type User struct {
-	Name string
-	Age  int
-}
 
-func (u User) IsAdult() bool {
-	return u.Age >= 18
-}
 
 // Future enhancement tests (Phase 2 and beyond)
 func TestAssert_FutureEnhancements(t *testing.T) {
@@ -209,11 +165,11 @@ func TestAssert_FutureEnhancements(t *testing.T) {
 	// ├─ 20 = 20 (int)
 	// └─ RESULT: false
 
-	mock := newMockT()
+	mock := testutil.NewMockT()
 	x := 10
 	Assert(mock, x > 20)
 
-	output := mock.getOutput()
+	output := mock.GetOutput()
 	// Verify that variable values are displayed
 	if !strings.Contains(output, "x = 10") {
 		t.Error("Should show variable value")

@@ -6,29 +6,8 @@ import (
 	"testing"
 
 	"github.com/paveg/diagassert"
+	"github.com/paveg/diagassert/internal/testutil"
 )
-
-// mockTestingT captures test output for validation
-type mockTestingT struct {
-	output string
-	failed bool
-}
-
-func (m *mockTestingT) Error(args ...interface{}) {
-	m.failed = true
-	if len(args) > 0 {
-		m.output = args[0].(string)
-	}
-}
-
-func (m *mockTestingT) Fatal(args ...interface{}) {
-	m.failed = true
-	if len(args) > 0 {
-		m.output = args[0].(string)
-	}
-}
-
-func (m *mockTestingT) Helper() {}
 
 // TestPhase2OutputDemo demonstrates Phase 2 enhanced output
 func TestPhase2OutputDemo(t *testing.T) {
@@ -39,12 +18,12 @@ func TestPhase2OutputDemo(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		assertion     func(*mockTestingT)
+		assertion     func(*testutil.MockT)
 		expectedParts []string
 	}{
 		{
 			name: "simple comparison with enhanced output",
-			assertion: func(mock *mockTestingT) {
+			assertion: func(mock *testutil.MockT) {
 				x := 10
 				diagassert.Assert(mock, x > 20)
 			},
@@ -60,7 +39,7 @@ func TestPhase2OutputDemo(t *testing.T) {
 		},
 		{
 			name: "logical expression with enhanced output",
-			assertion: func(mock *mockTestingT) {
+			assertion: func(mock *testutil.MockT) {
 				age := 16
 				hasLicense := false
 				diagassert.Assert(mock, age >= 18 && hasLicense)
@@ -78,19 +57,19 @@ func TestPhase2OutputDemo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := &mockTestingT{}
+			mock := testutil.NewMockT()
 			tt.assertion(mock)
 
-			if !mock.failed {
+			if !mock.Failed() {
 				t.Error("Expected assertion to fail")
 				return
 			}
 
-			t.Logf("Phase 2 Output:\n%s", mock.output)
+			t.Logf("Phase 2 Output:\n%s", mock.GetOutput())
 
 			// Verify expected parts are present
 			for _, expected := range tt.expectedParts {
-				if !strings.Contains(mock.output, expected) {
+				if !strings.Contains(mock.GetOutput(), expected) {
 					t.Errorf("Expected output to contain %q", expected)
 				}
 			}
@@ -100,22 +79,17 @@ func TestPhase2OutputDemo(t *testing.T) {
 
 // TestPhase2StructFieldDemo demonstrates struct field evaluation
 func TestPhase2StructFieldDemo(t *testing.T) {
-	type User struct {
-		Name string
-		Age  int
-	}
-
-	user := User{Name: "Alice", Age: 16}
-	mock := &mockTestingT{}
+	user := testutil.User{Name: "Alice", Age: 16}
+	mock := testutil.NewMockT()
 
 	diagassert.Assert(mock, user.Age >= 18)
 
-	if !mock.failed {
+	if !mock.Failed() {
 		t.Error("Expected assertion to fail")
 		return
 	}
 
-	t.Logf("Struct Field Output:\n%s", mock.output)
+	t.Logf("Struct Field Output:\n%s", mock.GetOutput())
 
 	// Check for Phase 2 features
 	expectedParts := []string{
@@ -126,7 +100,7 @@ func TestPhase2StructFieldDemo(t *testing.T) {
 	}
 
 	for _, expected := range expectedParts {
-		if !strings.Contains(mock.output, expected) {
+		if !strings.Contains(mock.GetOutput(), expected) {
 			t.Errorf("Expected output to contain %q", expected)
 		}
 	}

@@ -96,7 +96,7 @@ make install-tools
 
 ### Mock Testing Interface
 
-Tests use a custom `mockT` type that implements the minimal `TestingT` interface
+Tests use a custom `MockT` type that implements the minimal `TestingT` interface
 rather than embedding `testing.T`. This allows capturing assertion output for
 verification.
 

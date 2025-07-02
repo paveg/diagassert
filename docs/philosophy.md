@@ -116,8 +116,14 @@ FAIL_REASON: left_operand_false
 ## Usage Example
 
 ```go
+import (
+    "testing"
+    "github.com/paveg/diagassert"
+    "github.com/paveg/diagassert/internal/testutil"
+)
+
 func TestUserPermissions(t *testing.T) {
-    user := User{Name: "Alice", Age: 16}
+    user := testutil.User{Name: "Alice", Age: 16}
     
     // That's all! No special APIs needed
     diagassert.Assert(t, user.Age >= 18)

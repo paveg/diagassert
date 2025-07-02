@@ -3,22 +3,24 @@ package diagassert
 import (
 	"strings"
 	"testing"
+
+	"github.com/paveg/diagassert/internal/testutil"
 )
 
 // TestAPI_ValueCapture tests the new API for value capture and custom messages
 func TestAPI_ValueCapture(t *testing.T) {
 	t.Run("single value capture with V()", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 
 		// Test the exact usage pattern: diagassert.V("x", x)
 		Assert(mock, x > 20, V("x", x))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CAPTURED VALUES:") {
 			t.Errorf("Should contain captured values section, got: %s", output)
 		}
@@ -28,18 +30,18 @@ func TestAPI_ValueCapture(t *testing.T) {
 	})
 
 	t.Run("multiple values with Values map", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 		y := 5
 
 		// Test the exact usage pattern: diagassert.Values{"x": x, "y": y}
 		Assert(mock, x < y, Values{"x": x, "y": y})
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CAPTURED VALUES:") {
 			t.Errorf("Should contain captured values section, got: %s", output)
 		}
@@ -52,17 +54,17 @@ func TestAPI_ValueCapture(t *testing.T) {
 	})
 
 	t.Run("custom message as string", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		condition := false
 
 		// Test custom messages as strings
 		Assert(mock, condition, "This is a custom error message")
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CUSTOM MESSAGE:") {
 			t.Errorf("Should contain custom message section, got: %s", output)
 		}
@@ -72,18 +74,18 @@ func TestAPI_ValueCapture(t *testing.T) {
 	})
 
 	t.Run("mixed usage: values + messages", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 		y := 5
 
 		// Test mixing values and messages
 		Assert(mock, x < y, V("x", x), "Values should be ordered", V("y", y))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CUSTOM MESSAGE:") {
 			t.Errorf("Should contain custom message section, got: %s", output)
 		}
@@ -102,7 +104,7 @@ func TestAPI_ValueCapture(t *testing.T) {
 	})
 
 	t.Run("complex mixed usage", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		user := struct {
 			Name string
 			Age  int
@@ -117,11 +119,11 @@ func TestAPI_ValueCapture(t *testing.T) {
 			Values{"user.Name": user.Name, "required": "adult"},
 			"Expected user to be an adult")
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 
 		// Check for custom messages
 		if !strings.Contains(output, "CUSTOM MESSAGE:") {
@@ -156,16 +158,16 @@ func TestAPI_ValueCapture(t *testing.T) {
 // TestAPI_BackwardCompatibility ensures the original API still works
 func TestAPI_BackwardCompatibility(t *testing.T) {
 	t.Run("original API without additional args", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 
 		// Test that the original API still works
 		Assert(mock, false)
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "ASSERTION FAILED") {
 			t.Errorf("Should contain assertion failed message, got: %s", output)
 		}
@@ -183,7 +185,7 @@ func TestAPI_BackwardCompatibility(t *testing.T) {
 // TestRequire_ValueCapture tests the Require function with value capture
 func TestRequire_ValueCapture(t *testing.T) {
 	t.Run("require with value capture", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 
 		defer func() {
@@ -195,11 +197,11 @@ func TestRequire_ValueCapture(t *testing.T) {
 		// Test Require with value capture
 		Require(mock, x > 20, V("x", x), "Critical condition failed")
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Require should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CAPTURED VALUES:") {
 			t.Errorf("Should contain captured values section, got: %s", output)
 		}
@@ -289,4 +291,4 @@ func TestAssertionContext(t *testing.T) {
 	})
 }
 
-// Note: Using mockT and newMockT from assert_test.go
+// Note: Using MockT and newMockT from assert_test.go

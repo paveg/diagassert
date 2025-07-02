@@ -44,16 +44,13 @@ import (
 )
 
 func TestExample(t *testing.T) {
-    user := User{Name: "Alice", Age: 16}
+    x := 10
+    y := 20
     
     // Just write any Go expression!
-    diagassert.Assert(t, user.Age >= 18)
-    diagassert.Assert(t, user.HasLicense())
-    diagassert.Assert(t, user.Age >= 18 && user.HasLicense())
-    
-    // Works with any expression
-    diagassert.Assert(t, strings.Contains(user.Name, "A"))
-    diagassert.Assert(t, len(user.Name) > 0)
+    diagassert.Assert(t, x > y)
+    diagassert.Assert(t, x + y == 30)
+    diagassert.Assert(t, strings.Contains("hello", "lo"))
 }
 ```
 

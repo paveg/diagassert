@@ -5,50 +5,20 @@ import (
 	"testing"
 
 	"github.com/paveg/diagassert"
+	"github.com/paveg/diagassert/internal/testutil"
 )
 
 // Test for value capture functionality - Original Request Test Cases
 
-type mockT struct {
-	output string
-	failed bool
-}
-
-func (m *mockT) Error(args ...interface{}) {
-	m.failed = true
-	if len(args) > 0 {
-		m.output = args[0].(string)
-	}
-}
-
-func (m *mockT) Fatal(args ...interface{}) {
-	m.failed = true
-	if len(args) > 0 {
-		m.output = args[0].(string)
-	}
-}
-
-func (m *mockT) Helper() {}
-
-func newMockT() *mockT {
-	return &mockT{}
-}
-
-func (m *mockT) getOutput() string {
-	return m.output
-}
-
-// User type is already defined in example_test.go
-
 func TestAssert_WithValueCapture(t *testing.T) {
 	t.Run("single value capture", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 
 		// Provide values using V() helper
 		diagassert.Assert(mock, x > 20, diagassert.V("x", x))
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 
 		// Verify that values are displayed
 		if !strings.Contains(output, "x = 10") {
@@ -57,7 +27,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("multiple value captures", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x, y := 10, 20
 
 		// Capture multiple values
@@ -65,7 +35,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 			diagassert.V("x", x),
 			diagassert.V("y", y))
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 
 		if !strings.Contains(output, "x = 10") || !strings.Contains(output, "y = 20") {
 			t.Errorf("Should show all captured values, got: %s", output)
@@ -73,7 +43,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("values map", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		age := 16
 		hasLicense := false
 
@@ -84,7 +54,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 				"hasLicense": hasLicense,
 			})
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 
 		if !strings.Contains(output, "age = 16") {
 			t.Errorf("Should show age value, got: %s", output)
@@ -95,7 +65,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("with custom message", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 
 		// Combination of value capture and custom message
@@ -103,7 +73,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 			diagassert.V("x", x),
 			"Expected x to be greater than 20")
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 
 		if !strings.Contains(output, "x = 10") {
 			t.Errorf("Should show value, got: %s", output)
@@ -114,8 +84,8 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("complex expression with values", func(t *testing.T) {
-		mock := newMockT()
-		user := User{Name: "Alice", Age: 16}
+		mock := testutil.NewMockT()
+		user := testutil.User{Name: "Alice", Age: 16}
 		minAge := 18
 
 		diagassert.Assert(mock, user.Age >= minAge && user.IsAdult(),
@@ -125,7 +95,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 				"user":     user,
 			})
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 
 		// Structured evaluation tree is displayed
 		if !strings.Contains(output, "EVALUATION TRACE:") {
@@ -142,10 +112,10 @@ func TestAssert_WithValueCapture(t *testing.T) {
 func TestAssert_NoValueCapture(t *testing.T) {
 	// Basic functionality works even without value capture
 	t.Run("basic functionality without value capture", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		diagassert.Assert(mock, false)
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 
 		// Basic failure message is displayed
 		if !strings.Contains(output, "ASSERTION FAILED") {
@@ -154,11 +124,11 @@ func TestAssert_NoValueCapture(t *testing.T) {
 	})
 
 	t.Run("expression shown without values", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 		diagassert.Assert(mock, x > 20)
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 
 		// Expression is displayed
 		if !strings.Contains(output, "x > 20") {
@@ -175,14 +145,14 @@ func TestAssert_NoValueCapture(t *testing.T) {
 
 func TestAssert_OptionalValueCapture(t *testing.T) {
 	// Value capture is completely optional
-	mock := newMockT()
+	mock := testutil.NewMockT()
 	x, y, z := 10, 20, 30
 
 	// Provide only some values
 	diagassert.Assert(mock, x > y && y < z,
 		diagassert.V("y", y)) // Provide only y value
 
-	output := mock.getOutput()
+	output := mock.GetOutput()
 
 	// Provided values are displayed
 	if !strings.Contains(output, "y = 20") {
