@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/paveg/diagassert"
+	"github.com/paveg/diagassert/internal/testutil"
 )
 
 func TestExample_ActualOutput(t *testing.T) {
@@ -27,7 +28,7 @@ func TestExample_ActualOutput(t *testing.T) {
 func TestExample_Demo(t *testing.T) {
 	t.Log("Demo of diagassert output")
 
-	user := User{Name: "Alice", Age: 16}
+	user := testutil.User{Name: "Alice", Age: 16}
 
 	// Demo to see actual output (expecting failures)
 	if false {
@@ -35,19 +36,6 @@ func TestExample_Demo(t *testing.T) {
 		diagassert.Assert(t, user.HasLicense())
 		diagassert.Assert(t, user.Age >= 18 && user.HasLicense())
 	}
-}
-
-type User struct {
-	Name string
-	Age  int
-}
-
-func (u User) HasLicense() bool {
-	return false // Always returns false
-}
-
-func (u User) IsAdult() bool {
-	return u.Age >= 18
 }
 
 // Manual test to see actual failure output

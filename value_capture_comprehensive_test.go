@@ -3,24 +3,26 @@ package diagassert
 import (
 	"strings"
 	"testing"
+
+	"github.com/paveg/diagassert/internal/testutil"
 )
 
-// Note: Using mockT and User from assert_test.go to avoid redeclaration
+// Note: Using MockT and User from assert_test.go to avoid redeclaration
 
 // TestAssert_WithValueCapture tests assertion failures with comprehensive value capture functionality
 func TestAssert_WithValueCapture(t *testing.T) {
 	t.Run("single_value_with_V", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 
 		// Test the exact API pattern: diagassert.V("x", x)
 		Assert(mock, x > 20, V("x", x))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CAPTURED VALUES:") {
 			t.Errorf("Should contain captured values section, got: %s", output)
 		}
@@ -30,18 +32,18 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("multiple_values_with_Values_map", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 		y := 5
 
 		// Test the exact API pattern: diagassert.Values{"x": x, "y": y}
 		Assert(mock, x < y, Values{"x": x, "y": y})
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CAPTURED VALUES:") {
 			t.Errorf("Should contain captured values section, got: %s", output)
 		}
@@ -54,7 +56,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("mixed_V_and_Values", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		a := 10
 		b := 20
 		c := 30
@@ -62,11 +64,11 @@ func TestAssert_WithValueCapture(t *testing.T) {
 		// Test mixing V() and Values{} in the same assertion
 		Assert(mock, a > b, V("a", a), Values{"b": b, "c": c})
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CAPTURED VALUES:") {
 			t.Errorf("Should contain captured values section, got: %s", output)
 		}
@@ -82,7 +84,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("custom_message_with_values", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		score := 65
 		passingScore := 70
 
@@ -92,11 +94,11 @@ func TestAssert_WithValueCapture(t *testing.T) {
 			V("score", score),
 			V("passingScore", passingScore))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CUSTOM MESSAGE:") {
 			t.Errorf("Should contain custom message section, got: %s", output)
 		}
@@ -115,8 +117,8 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("complex_struct_values", func(t *testing.T) {
-		mock := newMockT()
-		user := User{Name: "Alice", Age: 16}
+		mock := testutil.NewMockT()
+		user := testutil.User{Name: "Alice", Age: 16}
 		minAge := 18
 
 		// Test capturing complex struct values
@@ -126,11 +128,11 @@ func TestAssert_WithValueCapture(t *testing.T) {
 			V("user.Age", user.Age),
 			V("minAge", minAge))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CAPTURED VALUES:") {
 			t.Errorf("Should contain captured values section, got: %s", output)
 		}
@@ -146,7 +148,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("multiple_messages_with_values", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 5
 		y := 10
 
@@ -158,11 +160,11 @@ func TestAssert_WithValueCapture(t *testing.T) {
 			V("y", y),
 			"Final validation message")
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CUSTOM MESSAGE:") {
 			t.Errorf("Should contain custom message section, got: %s", output)
 		}
@@ -181,7 +183,7 @@ func TestAssert_WithValueCapture(t *testing.T) {
 	})
 
 	t.Run("type_information_in_output", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		intVal := 42
 		strVal := "hello"
 		boolVal := true
@@ -194,11 +196,11 @@ func TestAssert_WithValueCapture(t *testing.T) {
 			V("boolVal", boolVal),
 			V("floatVal", floatVal))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "intVal = 42 (int)") {
 			t.Errorf("Should show int type, got: %s", output)
 		}
@@ -217,16 +219,16 @@ func TestAssert_WithValueCapture(t *testing.T) {
 // TestAssert_NoValueCapture tests assertions without any value capture (backward compatibility)
 func TestAssert_NoValueCapture(t *testing.T) {
 	t.Run("original_API_still_works", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 
 		// Test the original simple API
 		Assert(mock, false)
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "ASSERTION FAILED") {
 			t.Errorf("Should contain assertion failed message, got: %s", output)
 		}
@@ -239,18 +241,18 @@ func TestAssert_NoValueCapture(t *testing.T) {
 	})
 
 	t.Run("expression_evaluation_without_capture", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 10
 		y := 20
 
 		// Test complex expression without value capture
 		Assert(mock, x > y && y < 15)
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "ASSERTION FAILED") {
 			t.Errorf("Should contain assertion failed message, got: %s", output)
 		}
@@ -267,16 +269,16 @@ func TestAssert_NoValueCapture(t *testing.T) {
 // TestAssert_OptionalValueCapture tests various combinations of optional value capture
 func TestAssert_OptionalValueCapture(t *testing.T) {
 	t.Run("message_only_no_values", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 
 		// Test custom message without value capture
 		Assert(mock, false, "This is just a custom message")
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CUSTOM MESSAGE:") {
 			t.Errorf("Should contain custom message section, got: %s", output)
 		}
@@ -289,18 +291,18 @@ func TestAssert_OptionalValueCapture(t *testing.T) {
 	})
 
 	t.Run("values_only_no_message", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 100
 		y := 50
 
 		// Test value capture without custom message
 		Assert(mock, x < y, V("x", x), V("y", y))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CAPTURED VALUES:") {
 			t.Errorf("Should contain captured values section, got: %s", output)
 		}
@@ -316,16 +318,16 @@ func TestAssert_OptionalValueCapture(t *testing.T) {
 	})
 
 	t.Run("empty_Values_map", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 
 		// Test with empty Values map
 		Assert(mock, false, Values{}, "Message with empty values")
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CUSTOM MESSAGE:") {
 			t.Errorf("Should contain custom message section, got: %s", output)
 		}
@@ -335,7 +337,7 @@ func TestAssert_OptionalValueCapture(t *testing.T) {
 	})
 
 	t.Run("nil_and_zero_values", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		var nilPtr *string
 		zeroInt := 0
 		emptyString := ""
@@ -347,11 +349,11 @@ func TestAssert_OptionalValueCapture(t *testing.T) {
 			V("zeroInt", zeroInt),
 			V("emptyString", emptyString))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CAPTURED VALUES:") {
 			t.Errorf("Should contain captured values section, got: %s", output)
 		}
@@ -367,7 +369,7 @@ func TestAssert_OptionalValueCapture(t *testing.T) {
 	})
 
 	t.Run("interleaved_messages_and_values", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		a := 1
 		b := 2
 		c := 3
@@ -380,11 +382,11 @@ func TestAssert_OptionalValueCapture(t *testing.T) {
 			Values{"b": b, "c": c},
 			"End message")
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CUSTOM MESSAGE:") {
 			t.Errorf("Should contain custom message section, got: %s", output)
 		}
@@ -409,7 +411,7 @@ func TestAssert_OptionalValueCapture(t *testing.T) {
 // TestRequire_WithValueCapture tests the Require function with value capture
 func TestRequire_WithValueCapture(t *testing.T) {
 	t.Run("require_with_value_capture_should_panic", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 5
 
 		defer func() {
@@ -424,11 +426,11 @@ func TestRequire_WithValueCapture(t *testing.T) {
 			V("x", x),
 			V("threshold", 10))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Require should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "CUSTOM MESSAGE:") {
 			t.Errorf("Should contain custom message section, got: %s", output)
 		}
@@ -450,7 +452,7 @@ func TestRequire_WithValueCapture(t *testing.T) {
 // TestValueCapture_MachineReadableOutput tests that machine-readable output includes captured values
 func TestValueCapture_MachineReadableOutput(t *testing.T) {
 	t.Run("machine_readable_includes_captured_values", func(t *testing.T) {
-		mock := newMockT()
+		mock := testutil.NewMockT()
 		x := 42
 		message := "Test message"
 
@@ -459,11 +461,11 @@ func TestValueCapture_MachineReadableOutput(t *testing.T) {
 			message,
 			V("x", x))
 
-		if !mock.failed {
+		if !mock.Failed() {
 			t.Error("Assert should have failed")
 		}
 
-		output := mock.getOutput()
+		output := mock.GetOutput()
 		if !strings.Contains(output, "[MACHINE_READABLE_START]") {
 			t.Errorf("Should contain machine readable section, got: %s", output)
 		}
