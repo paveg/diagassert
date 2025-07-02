@@ -4,26 +4,7 @@
 
 ## Philosophy: Zero Learning Curve
 
-Traditional assertion libraries force you to learn dozens of APIs:
-
-```go
-// Too many APIs to remember!
-assert.Equal(t, actual, expected)
-assert.Greater(t, x, y)
-assert.Contains(t, str, substr)
-assert.True(t, condition)
-// ... and many more
-```
-
-diagassert has just **2 functions**:
-
-```go
-// That's it! Use any Go expression
-diagassert.Assert(t, actual == expected)
-diagassert.Assert(t, x > y)
-diagassert.Assert(t, strings.Contains(str, substr))
-diagassert.Assert(t, condition)
-```
+diagassert has just **2 functions** - use any Go expression directly without learning dozens of APIs. See **[Philosophy](./docs/philosophy.md)** for details.
 
 ## Installation
 

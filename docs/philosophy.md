@@ -54,7 +54,6 @@ func Require(t testing.TB, expr bool)
 Control via environment variables without increasing API surface:
 
 - `DIAGASSERT_MACHINE_READABLE`: "true" (default) | "false"
-- `DIAGASSERT_FORMAT`: "hybrid" (default) | "human" | "machine"
 
 ## Output Format
 
