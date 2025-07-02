@@ -50,8 +50,10 @@ func TestAssert_SimpleAPI(t *testing.T) {
 	t.Run("just pass expression - true case", func(t *testing.T) {
 		// That's it! No need to learn other APIs
 		Assert(t, true)
-		Assert(t, 1 == 1)
-		Assert(t, "hello" == "hello")
+		x := 1
+		Assert(t, x == 1)
+		str := "hello"
+		Assert(t, str == "hello")
 	})
 
 	t.Run("just pass expression - false case", func(t *testing.T) {

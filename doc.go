@@ -8,6 +8,7 @@
 //   - DIAGASSERT_MACHINE_READABLE: "true" (default) | "false"
 //
 // Example:
+//
 //	diagassert.Assert(t, user.Age >= 18)
 //	diagassert.Assert(t, strings.Contains(name, "test"))
 //	diagassert.Assert(t, x > y && y > 0)
