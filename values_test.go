@@ -291,4 +291,4 @@ func TestAssertionContext(t *testing.T) {
 	})
 }
 
-// Note: Using MockT and newMockT from assert_test.go
+// Note: Using MockT and NewMockT from assert_test.go
