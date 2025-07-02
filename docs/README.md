@@ -5,10 +5,12 @@ This directory contains comprehensive documentation for the diagassert project.
 ## Documentation Files
 
 ### Core Documentation
+
 - **[Philosophy](./philosophy.md)** - Design principles and the "No API is the best API" approach
 - **[TDD Plan](./tdd-plan.md)** - Test-driven development roadmap and implementation phases
 
 ### Additional Resources
+
 - **[Examples](../examples/)** - Practical usage examples and demonstrations
 - **[API Reference](../doc.go)** - Package-level API documentation
 - **[Source Code](../)** - Main source code and implementation

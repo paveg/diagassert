@@ -12,6 +12,7 @@ This example demonstrates the fundamental usage patterns of diagassert.
 ## Key Concepts
 
 ### Zero Learning Curve
+
 You don't need to learn special assertion APIs. Just use Go expressions:
 
 ```go
@@ -26,6 +27,7 @@ diagassert.Assert(t, strings.Contains(str, substr))
 ```
 
 ### Expression Display
+
 When assertions fail, you see exactly what expression was evaluated:
 
 ```
@@ -35,6 +37,7 @@ Result: false
 ```
 
 ### Machine-Readable Output
+
 By default, machine-readable sections are included for AI tools and automation:
 
 ```

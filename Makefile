@@ -1,7 +1,7 @@
-.PHONY: test lint fmt clean coverage help
+.PHONY: test lint fmt clean coverage install-tools install-hooks help
 
 # Default target
-all: test
+all: help
 
 # Run tests
 test:
@@ -29,6 +29,11 @@ clean:
 install-tools:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install golang.org/x/tools/cmd/goimports@latest
+	go install github.com/evilmartians/lefthook@latest
+
+# Install git hooks
+install-hooks:
+	lefthook install
 
 # Show help
 help:
@@ -39,4 +44,5 @@ help:
 	@echo "  fmt           - Format code"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  install-tools - Install development tools"
+	@echo "  install-hooks - Install git hooks managed by lefthook"
 	@echo "  help          - Show this help message"
