@@ -1,3 +1,3 @@
 module github.com/paveg/diagassert
 
-go 1.18
+go 1.20
