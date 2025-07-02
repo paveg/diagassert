@@ -8,13 +8,13 @@ import (
 
 func TestBuildDiagnosticOutput(t *testing.T) {
 	tests := []struct {
-		name           string
-		file           string
-		line           int
-		expr           string
-		opts           Options
-		expectedParts  []string
-		notExpected    []string
+		name          string
+		file          string
+		line          int
+		expr          string
+		opts          Options
+		expectedParts []string
+		notExpected   []string
 	}{
 		{
 			name: "basic output without machine readable",
