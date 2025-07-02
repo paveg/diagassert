@@ -1,19 +1,25 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository.
 
 ## Repository Overview
 
-This is diagassert, a Go assertion library that implements the power-assert philosophy of "No API is the best API". The core innovation is providing detailed diagnostic output while maintaining an extremely simple 2-function API.
+This is diagassert, a Go assertion library that implements the power-assert
+philosophy of "No API is the best API". The core innovation is providing
+detailed diagnostic output while maintaining an extremely simple 2-function API.
 
 ## Core Philosophy & Design Constraints
 
-**Critical Design Principle**: This library deliberately contradicts traditional assertion library design. Instead of providing dozens of specialized assertion functions, it provides only 2 functions that work with any Go expression:
+**Critical Design Principle**: This library deliberately contradicts traditional
+assertion library design. Instead of providing dozens of specialized assertion
+functions, it provides only 2 functions that work with any Go expression:
 
 - `Assert(t, expr bool)` - fails test on false
 - `Require(t, expr bool)` - terminates test immediately on false
 
-**Never add more public API functions**. Any new functionality must be achieved through:
+**Never add more public API functions**. Any new functionality must be achieved
+through:
 
 1. Environment variable configuration
 2. Internal package enhancements  
@@ -23,7 +29,8 @@ This is diagassert, a Go assertion library that implements the power-assert phil
 
 ### AST-Based Expression Extraction
 
-The core technical innovation is runtime AST parsing to extract and display the actual Go expressions that failed:
+The core technical innovation is runtime AST parsing to extract and display the
+actual Go expressions that failed:
 
 ```go
 // Instead of: assert.Greater(t, x, y)
@@ -34,13 +41,16 @@ This requires:
 
 1. `runtime.Caller()` to get source file and line number
 2. `go/parser` to parse the source file into AST
-3. AST traversal to find the Assert/Require call and extract the expression argument
+3. AST traversal to find the Assert/Require call and extract the expression
+   argument
 
 ### Internal Package Structure
 
 - **`internal/parser/`** - AST parsing to extract expressions from source code
-- **`internal/formatter/`** - Output formatting including machine-readable sections
-- **`internal/evaluator/`** - Future Phase 2+ functionality for variable value extraction
+- **`internal/formatter/`** - Output formatting including machine-readable
+  sections
+- **`internal/evaluator/`** - Future Phase 2+ functionality for variable value
+  extraction
 
 ### Development Phases
 
@@ -86,7 +96,9 @@ make install-tools
 
 ### Mock Testing Interface
 
-Tests use a custom `mockT` type that implements the minimal `TestingT` interface rather than embedding `testing.T`. This allows capturing assertion output for verification.
+Tests use a custom `mockT` type that implements the minimal `TestingT` interface
+rather than embedding `testing.T`. This allows capturing assertion output for
+verification.
 
 ### Expression Testing
 
@@ -103,13 +115,15 @@ Test cases verify that:
 
 - `DIAGASSERT_MACHINE_READABLE`: "true" (default) | "false"
 
-**Never add command-line flags or configuration files** - this would violate the simplicity principle.
+**Never add command-line flags or configuration files** - this would violate the
+simplicity principle.
 
 ## Key Implementation Details
 
 ### Runtime Caller Detection
 
-Uses `runtime.Caller(2)` to get the file/line of the Assert/Require call, then parses that source file to extract the exact expression.
+Uses `runtime.Caller(2)` to get the file/line of the Assert/Require call, then
+parses that source file to extract the exact expression.
 
 ### AST Parsing Approach
 
@@ -117,14 +131,16 @@ Uses `runtime.Caller(2)` to get the file/line of the Assert/Require call, then p
 2. Parse into AST using `go/parser`
 3. Find CallExpr nodes matching Assert/Require
 4. Extract the second argument (the expression) as string
-5. Support both package-qualified (`diagassert.Assert`) and unqualified (`Assert`) calls
+5. Support both package-qualified (`diagassert.Assert`) and unqualified
+   (`Assert`) calls
 
 ### Output Format Design
 
 Balances human readability with machine parsability:
 
 - Human section: file location, expression, result
-- Machine section: structured data for AI tools (wrapped in `[MACHINE_READABLE_START/END]`)
+- Machine section: structured data for AI tools (wrapped in
+  `[MACHINE_READABLE_START/END]`)
 
 ## Development Guidelines
 

@@ -30,7 +30,7 @@ diagassert.Assert(t, strings.Contains(str, substr))
 
 When assertions fail, you see exactly what expression was evaluated:
 
-```
+```text
 ASSERTION FAILED at main.go:45
 Expression: age >= 18 && hasLicense
 Result: false
@@ -40,7 +40,7 @@ Result: false
 
 By default, machine-readable sections are included for AI tools and automation:
 
-```
+```text
 [MACHINE_READABLE_START]
 EXPR: age >= 18 && hasLicense
 RESULT: false
@@ -56,4 +56,5 @@ go run main.go
 
 ## Expected Output
 
-You'll see assertion failures with detailed diagnostic information, followed by successful assertions that produce no output (as expected).
+You'll see assertion failures with detailed diagnostic information, followed by
+successful assertions that produce no output (as expected).

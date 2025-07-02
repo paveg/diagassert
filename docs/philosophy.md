@@ -59,7 +59,7 @@ Control via environment variables without increasing API surface:
 
 ### Basic Failure Output
 
-```
+```text
 ASSERTION FAILED at user_test.go:42
 Expression: age >= 18 && hasLicense
 Result: false
@@ -67,7 +67,7 @@ Result: false
 
 ### Future Enhancement (Phase 2 onwards)
 
-```
+```text
 ASSERTION FAILED at user_test.go:42
 Expression: age >= 18 && hasLicense
 Result: false
@@ -149,7 +149,9 @@ func TestUserPermissions(t *testing.T) {
 
 ## Summary
 
-diagassert is a simple yet powerful assertion library that inherits power-assert's "No API is the best API" philosophy while adding machine readability for the AI era.
+diagassert is a simple yet powerful assertion library that inherits
+power-assert's "No API is the best API" philosophy while adding machine
+readability for the AI era.
 
 This design provides:
 

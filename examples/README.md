@@ -1,6 +1,7 @@
 # diagassert Examples
 
-This directory contains practical examples demonstrating different usage patterns of diagassert.
+This directory contains practical examples demonstrating different usage
+patterns of diagassert.
 
 ## Examples
 

@@ -2,11 +2,13 @@
 
 [![Test](https://github.com/paveg/diagassert/actions/workflows/test.yml/badge.svg)](https://github.com/paveg/diagassert/actions/workflows/test.yml)
 
-**No API is the Best API** - A human and AI-friendly assertion library for Go testing inspired by [power-assert](https://github.com/power-assert-js/power-assert).
+**No API is the Best API** - A human and AI-friendly assertion library for Go
+testing inspired by [power-assert](https://github.com/power-assert-js/power-assert).
 
 ## Philosophy: Zero Learning Curve
 
-diagassert has just **2 functions** - use any Go expression directly without learning dozens of APIs. See **[Philosophy](./docs/philosophy.md)** for details.
+diagassert has just **2 functions** - use any Go expression directly without
+learning dozens of APIs. See **[Philosophy](./docs/philosophy.md)** for details.
 
 ## Installation
 
@@ -57,7 +59,7 @@ func TestExample(t *testing.T) {
 
 When assertions fail, you get detailed diagnostic information:
 
-```bash
+```text
 ASSERTION FAILED at user_test.go:42
 Expression: user.Age >= 18 && user.HasLicense()
 Result: false
@@ -87,7 +89,8 @@ RESULT: false
 
 - **[Documentation Index](./docs/)** - Complete documentation overview
 - **[Examples](./examples/)** - Practical usage examples and demonstrations
-- **[Philosophy](./docs/philosophy.md)** - Design principles and "No API" approach
+- **[Philosophy](./docs/philosophy.md)** - Design principles and "No API"
+  approach
 - **[API Reference](./doc.go)** - Package-level documentation
 
 ## License
