@@ -57,10 +57,6 @@ func Require(t TestingT, expr bool, args ...interface{}) {
 	t.Fatal(output)
 }
 
-// buildDiagnosticOutput builds diagnostic information with enhanced evaluation
-func buildDiagnosticOutput(exprResult bool) string {
-	return buildDiagnosticOutputWithContext(exprResult, NewAssertionContext())
-}
 
 // buildDiagnosticOutputWithContext builds diagnostic information with enhanced evaluation and context
 func buildDiagnosticOutputWithContext(exprResult bool, ctx *AssertionContext) string {

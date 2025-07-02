@@ -49,8 +49,10 @@ func TestAPI_Example(t *testing.T) {
 
 	// The original API still works perfectly
 	diagassert.Assert(t, true)
-	diagassert.Assert(t, 1 == 1)
-	diagassert.Assert(t, "hello" == "hello")
+	x := 1
+	diagassert.Assert(t, x == 1)
+	str := "hello"
+	diagassert.Assert(t, str == "hello")
 }
 
 // Manual test to see the actual output

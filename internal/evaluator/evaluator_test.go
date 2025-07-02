@@ -91,6 +91,7 @@ func TestBuildEvaluationTree(t *testing.T) {
 
 			if tree == nil {
 				t.Errorf("buildEvaluationTree(%q) should not return nil", tt.expr)
+				return
 			}
 
 			if tree.ID == 0 {

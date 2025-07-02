@@ -435,11 +435,15 @@ func parseLiteral(lit *ast.BasicLit) interface{} {
 	case token.INT:
 		// Simple int parsing - more sophisticated parsing could be added
 		var val int
-		fmt.Sscanf(lit.Value, "%d", &val)
+		if _, err := fmt.Sscanf(lit.Value, "%d", &val); err != nil {
+			return lit.Value // Return original string if parsing fails
+		}
 		return val
 	case token.FLOAT:
 		var val float64
-		fmt.Sscanf(lit.Value, "%f", &val)
+		if _, err := fmt.Sscanf(lit.Value, "%f", &val); err != nil {
+			return lit.Value // Return original string if parsing fails
+		}
 		return val
 	case token.STRING:
 		// Remove quotes
