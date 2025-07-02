@@ -8,7 +8,9 @@ testing inspired by [power-assert](https://github.com/power-assert-js/power-asse
 ## Philosophy: Zero Learning Curve
 
 diagassert has just **2 functions** - use any Go expression directly without
-learning dozens of APIs. See **[Philosophy](./docs/philosophy.md)** for details.
+learning dozens of APIs.
+
+See **[Philosophy](./docs/philosophy.md)** for details.
 
 ## Installation
 
