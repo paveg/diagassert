@@ -38,8 +38,6 @@ func TestExample_Demo(t *testing.T) {
 	}
 }
 
-
-
 // Manual test to see actual failure output
 func TestExample_ManualFailure(t *testing.T) {
 	if testing.Short() {

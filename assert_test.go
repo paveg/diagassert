@@ -153,8 +153,6 @@ func TestRequire(t *testing.T) {
 	})
 }
 
-
-
 // Future enhancement tests (Phase 2 and beyond)
 func TestAssert_FutureEnhancements(t *testing.T) {
 	t.Skip("Future enhancements - showing variable values in output")
