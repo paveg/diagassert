@@ -180,7 +180,7 @@ func formatEvaluationTree(tree *evaluator.EvaluationTree, prefix string, isLast 
 			b.WriteString(formatEvaluationTree(tree.Left, prefix+getChildPrefix(isLast), false))
 		}
 		if tree.Right != nil {
-			b.WriteString(formatEvaluationTree(tree.Right, prefix+getChildPrefix(isLast), tree.Right == tree.Right))
+			b.WriteString(formatEvaluationTree(tree.Right, prefix+getChildPrefix(isLast), true))
 		}
 		b.WriteString(fmt.Sprintf("%s%s RESULT: %t\n", prefix, getChildPrefix(isLast)+"└─", tree.Result))
 
