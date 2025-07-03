@@ -94,14 +94,41 @@ type CharPosition struct {
 
 // ValuePosition represents a value and its position in the expression.
 type ValuePosition struct {
-	Expression string
-	Value      string
-	StartPos   int // Byte position in expression
-	EndPos     int // End byte position
-	VisualPos  int // Visual position considering wide characters
-	VisualEnd  int // Visual end position
-	Depth      int // Depth in the AST tree for proper layering
-	Priority   int // Priority for positioning (higher = more important)
+	Expression  string
+	Value       string
+	StartPos    int // Byte position in expression
+	EndPos      int // End byte position
+	VisualPos   int // Visual position considering wide characters
+	VisualEnd   int // Visual end position
+	Depth       int // Depth in the AST tree for proper layering
+	Priority    int // Priority for positioning (higher = more important)
+	VisualLayer int // Visual layer assigned for rendering (separate from semantic depth)
+}
+
+// VisualNode separates evaluation depth from visual layers for rendering
+type VisualNode struct {
+	Position      ValuePosition
+	EvaluationDepth int      // Semantic depth in the evaluation tree
+	VisualLayer   int      // Visual layer for rendering (may differ from evaluation depth)
+	PipePosition  int      // Fixed pipe position in the expression
+	ConflictsWith []int    // Indices of other nodes this conflicts with
+}
+
+// LayerAssignment manages the assignment of values to visual layers
+type LayerAssignment struct {
+	MaxLayer int                    // Maximum layer number assigned
+	Layers   [][]VisualNode         // Nodes grouped by visual layer
+	PipePositions map[int]bool      // Track fixed pipe positions
+}
+
+// Range represents an occupied interval in a visual layer
+type Range struct {
+	Start, End int
+}
+
+// ConflictMap tracks which positions conflict with each other
+type ConflictMap struct {
+	Conflicts map[int][]int // Map from position index to list of conflicting positions
 }
 
 // PositionMapper helps map AST nodes to accurate positions.
@@ -317,6 +344,24 @@ func (f *VisualFormatter) collectPositionsWithASTDepth(tree *evaluator.Evaluatio
 				}
 			}
 
+		case "literal":
+			if tree.Value != nil && tree.Text != "" {
+				key := fmt.Sprintf("%d-lit-%s", startVisual, tree.Text)
+				if !seen[key] {
+					seen[key] = true
+					*positions = append(*positions, ValuePosition{
+						Expression: tree.Text,
+						Value:      formatValueCompact(tree.Value),
+						StartPos:   startPos,
+						EndPos:     endPos,
+						VisualPos:  startVisual,
+						VisualEnd:  endVisual,
+						Depth:      depth,
+						Priority:   15, // Show literal values too
+					})
+				}
+			}
+
 		case "comparison", "logical":
 			if tree.Operator != "" {
 				// Find operator position within the node
@@ -333,7 +378,7 @@ func (f *VisualFormatter) collectPositionsWithASTDepth(tree *evaluator.Evaluatio
 						EndPos:     opPos + len(tree.Operator),
 						VisualPos:  opVisual,
 						VisualEnd:  opVisual + visualWidth(tree.Operator),
-						Depth:      depth,
+						Depth:      depth + 1, // Operator result at deeper level than operands
 						Priority:   5,
 					})
 				}
@@ -341,12 +386,14 @@ func (f *VisualFormatter) collectPositionsWithASTDepth(tree *evaluator.Evaluatio
 		}
 	}
 
-	// Process children - keep same depth for immediate children, increase for nested expressions
-	// For binary expressions like "x > 20", we want x and > on the same level
+	// Process children with proper depth hierarchy for power-assert style display
+	// For binary expressions like "x > 20", we want values (15, 20) at one level,
+	// then operation result (false) at the next level
 	var nextDepth int
 	if tree.Type == "comparison" || tree.Type == "logical" {
-		// For operators, their operands should be at the same depth as the operator
-		nextDepth = depth
+		// For operators, their operands should be at a deeper level to show values first,
+		// then the operation result at the current level
+		nextDepth = depth + 1
 	} else {
 		// For other types, increase depth for children
 		nextDepth = depth + 1
@@ -397,6 +444,32 @@ func (f *VisualFormatter) collectPositionsDepth(tree *evaluator.EvaluationTree, 
 			}
 		}
 
+	case "literal":
+		if tree.Value != nil && tree.Text != "" {
+			// Find where this literal appears in the expression
+			if pos := strings.Index(expr, tree.Text); pos != -1 {
+				visualPos := f.byteToVisualPos(pos, mapper.charPositions)
+				// Fallback to byte position if visual position calculation fails
+				if visualPos == 0 && pos != 0 {
+					visualPos = pos
+				}
+				key := fmt.Sprintf("%d-lit-%s", visualPos, tree.Text)
+				if !seen[key] {
+					seen[key] = true
+					*positions = append(*positions, ValuePosition{
+						Expression: tree.Text,
+						Value:      formatValueCompact(tree.Value),
+						StartPos:   pos,
+						EndPos:     pos + len(tree.Text),
+						VisualPos:  visualPos,
+						VisualEnd:  visualPos + visualWidth(tree.Text),
+						Depth:      depth,
+						Priority:   15, // Show literal values too
+					})
+				}
+			}
+		}
+
 	case "comparison":
 		// For comparisons, show the result aligned with the operator
 		if tree.Operator != "" {
@@ -416,7 +489,7 @@ func (f *VisualFormatter) collectPositionsDepth(tree *evaluator.EvaluationTree, 
 						EndPos:     pos + len(tree.Operator),
 						VisualPos:  visualPos,
 						VisualEnd:  visualPos + visualWidth(tree.Operator),
-						Depth:      depth,
+						Depth:      depth + 1, // Operator result at deeper level than operands
 						Priority:   5,
 					})
 				}
@@ -442,7 +515,7 @@ func (f *VisualFormatter) collectPositionsDepth(tree *evaluator.EvaluationTree, 
 						EndPos:     pos + len(tree.Operator),
 						VisualPos:  visualPos,
 						VisualEnd:  visualPos + visualWidth(tree.Operator),
-						Depth:      depth,
+						Depth:      depth + 1, // Operator result at deeper level than operands
 						Priority:   3,
 					})
 				}
@@ -450,12 +523,14 @@ func (f *VisualFormatter) collectPositionsDepth(tree *evaluator.EvaluationTree, 
 		}
 	}
 
-	// Process children - keep same depth for immediate children, increase for nested expressions
-	// For binary expressions like "x > 20", we want x and > on the same level
+	// Process children with proper depth hierarchy for power-assert style display
+	// For binary expressions like "x > 20", we want values (15, 20) at one level,
+	// then operation result (false) at the next level
 	var nextDepth int
 	if tree.Type == "comparison" || tree.Type == "logical" {
-		// For operators, their operands should be at the same depth as the operator
-		nextDepth = depth
+		// For operators, their operands should be at a deeper level to show values first,
+		// then the operation result at the current level
+		nextDepth = depth + 1
 	} else {
 		// For other types, increase depth for children
 		nextDepth = depth + 1
@@ -475,6 +550,8 @@ func (f *VisualFormatter) nodeMatches(astNode ast.Node, tree *evaluator.Evaluati
 	switch n := astNode.(type) {
 	case *ast.Ident:
 		return tree.Type == "identifier" && n.Name == tree.Text
+	case *ast.BasicLit:
+		return tree.Type == "literal" && n.Value == tree.Text
 	case *ast.BinaryExpr:
 		return (tree.Type == "comparison" || tree.Type == "logical") && n.Op.String() == tree.Operator
 	case *ast.SelectorExpr:
@@ -558,7 +635,7 @@ func valuesOverlap(a, b ValuePosition) bool {
 	return !(aEnd <= bStart || bEnd <= aStart)
 }
 
-// buildUnicodeAwareLines builds visual lines with Unicode support and depth-based positioning.
+// buildUnicodeAwareLines builds visual lines with Unicode support and the new layer architecture.
 func (f *VisualFormatter) buildUnicodeAwareLines(expr string, positions []ValuePosition, mapper *PositionMapper) []string {
 	if len(positions) == 0 {
 		return []string{"false"}
@@ -567,22 +644,8 @@ func (f *VisualFormatter) buildUnicodeAwareLines(expr string, positions []ValueP
 	// Fix visual positions by calculating them correctly based on expression content
 	correctedPositions := f.correctVisualPositions(positions, expr)
 
-	// Sort positions by depth first (shallower first), then by visual position
-	sort.Slice(correctedPositions, func(i, j int) bool {
-		if correctedPositions[i].Depth != correctedPositions[j].Depth {
-			return correctedPositions[i].Depth < correctedPositions[j].Depth
-		}
-		if correctedPositions[i].VisualPos != correctedPositions[j].VisualPos {
-			return correctedPositions[i].VisualPos < correctedPositions[j].VisualPos
-		}
-		return correctedPositions[i].Priority > correctedPositions[j].Priority
-	})
-
-	// Group positions by depth levels for proper tree structure
-	depthGroups := f.groupPositionsByDepth(correctedPositions)
-
-	// Build the classic power-assert tree structure
-	return f.buildPowerAssertTree(expr, depthGroups)
+	// Use the new layer-based architecture instead of depth-based grouping
+	return f.buildPowerAssertTreeWithLayers(expr, correctedPositions)
 }
 
 // correctVisualPositions fixes visual positions by finding actual positions in the expression
@@ -622,7 +685,179 @@ func (f *VisualFormatter) findActualPosition(element string, expr string) int {
 	return -1
 }
 
-// buildPowerAssertTree builds the classic power-assert tree structure
+// assignVisualLayers assigns values to visual layers using greedy algorithm to minimize layers
+func (f *VisualFormatter) assignVisualLayers(positions []ValuePosition) LayerAssignment {
+	assignment := LayerAssignment{
+		MaxLayer:      0,
+		Layers:        make([][]VisualNode, 0),
+		PipePositions: make(map[int]bool),
+	}
+	
+	// Convert positions to visual nodes
+	nodes := make([]VisualNode, len(positions))
+	for i, pos := range positions {
+		nodes[i] = VisualNode{
+			Position:        pos,
+			EvaluationDepth: pos.Depth,
+			VisualLayer:     -1, // Unassigned
+			PipePosition:    pos.VisualPos,
+		}
+		assignment.PipePositions[pos.VisualPos] = true
+	}
+	
+	// Sort nodes by priority (higher priority gets better layer assignment)
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].Position.Priority != nodes[j].Position.Priority {
+			return nodes[i].Position.Priority > nodes[j].Position.Priority
+		}
+		return nodes[i].PipePosition < nodes[j].PipePosition
+	})
+	
+	// Assign each node to the lowest available layer
+	for i := range nodes {
+		layerAssigned := false
+		
+		// Try to place in existing layers
+		for layerIdx := 0; layerIdx < len(assignment.Layers); layerIdx++ {
+			if f.canPlaceInLayer(nodes[i], assignment.Layers[layerIdx]) {
+				assignment.Layers[layerIdx] = append(assignment.Layers[layerIdx], nodes[i])
+				nodes[i].VisualLayer = layerIdx
+				layerAssigned = true
+				break
+			}
+		}
+		
+		// Create new layer if needed
+		if !layerAssigned {
+			newLayer := []VisualNode{nodes[i]}
+			assignment.Layers = append(assignment.Layers, newLayer)
+			nodes[i].VisualLayer = len(assignment.Layers) - 1
+			assignment.MaxLayer = nodes[i].VisualLayer
+		}
+	}
+	
+	return assignment
+}
+
+// canPlaceInLayer checks if a node can be placed in the given layer without conflicts
+func (f *VisualFormatter) canPlaceInLayer(node VisualNode, layer []VisualNode) bool {
+	nodeRange := f.getValueRange(node)
+	
+	for _, existing := range layer {
+		existingRange := f.getValueRange(existing)
+		if f.rangesOverlap(nodeRange.Start, nodeRange.End, existingRange.Start, existingRange.End) {
+			return false
+		}
+	}
+	return true
+}
+
+// getValueRange calculates the display range for a value
+func (f *VisualFormatter) getValueRange(node VisualNode) Range {
+	valueWidth := visualWidth(node.Position.Value)
+	startPos := node.PipePosition
+	endPos := startPos + valueWidth
+	return Range{Start: startPos, End: endPos}
+}
+
+// buildPowerAssertTreeWithLayers builds power-assert tree using visual layers
+func (f *VisualFormatter) buildPowerAssertTreeWithLayers(expr string, positions []ValuePosition) []string {
+	if len(positions) == 0 {
+		return []string{"false"}
+	}
+	
+	// Assign values to visual layers
+	layerAssignment := f.assignVisualLayers(positions)
+	
+	var result []string
+	exprWidth := visualWidth(expr)
+	
+	// Build each visual layer
+	for layerIdx := 0; layerIdx <= layerAssignment.MaxLayer; layerIdx++ {
+		if layerIdx >= len(layerAssignment.Layers) {
+			continue
+		}
+		
+		layer := layerAssignment.Layers[layerIdx]
+		if len(layer) == 0 {
+			continue
+		}
+		
+		// Build pipe line with all relevant pipe positions
+		pipeLine := strings.Repeat(" ", exprWidth+100)
+		pipeRunes := []rune(pipeLine)
+		
+		// Place pipes for values in this layer AND pipes that continue from deeper layers
+		for pipePos := range layerAssignment.PipePositions {
+			showPipe := false
+			
+			// Show pipe if there's a value at this layer
+			for _, node := range layer {
+				if node.PipePosition == pipePos {
+					showPipe = true
+					break
+				}
+			}
+			
+			// Show pipe if there are values at deeper layers
+			if !showPipe && layerIdx < layerAssignment.MaxLayer {
+				for futureLayerIdx := layerIdx + 1; futureLayerIdx < len(layerAssignment.Layers); futureLayerIdx++ {
+					for _, futureNode := range layerAssignment.Layers[futureLayerIdx] {
+						if futureNode.PipePosition == pipePos {
+							showPipe = true
+							break
+						}
+					}
+					if showPipe {
+						break
+					}
+				}
+			}
+			
+			if showPipe && pipePos < len(pipeRunes) {
+				pipeRunes[pipePos] = '|'
+			}
+		}
+		
+		// Add pipe line
+		pipeStr := strings.TrimRight(string(pipeRunes), " ")
+		if pipeStr != "" {
+			result = append(result, pipeStr)
+		}
+		
+		// Build value line
+		valueLine := strings.Repeat(" ", exprWidth+100)
+		valueRunes := []rune(valueLine)
+		
+		// Place values at their exact pipe positions (no smart centering)
+		for _, node := range layer {
+			valueText := []rune(node.Position.Value)
+			startPos := node.PipePosition
+			
+			// Place value directly under its pipe
+			for i, r := range valueText {
+				if startPos+i < len(valueRunes) {
+					valueRunes[startPos+i] = r
+				}
+			}
+		}
+		
+		// Add value line
+		valueStr := strings.TrimRight(string(valueRunes), " ")
+		if valueStr != "" {
+			result = append(result, valueStr)
+		}
+		
+		// Add spacing between layers (except for the last layer)
+		if layerIdx < layerAssignment.MaxLayer {
+			result = append(result, "")
+		}
+	}
+	
+	return result
+}
+
+// buildPowerAssertTree builds the classic power-assert tree structure (DEPRECATED - use buildPowerAssertTreeWithLayers)
 func (f *VisualFormatter) buildPowerAssertTree(expr string, depthGroups [][]ValuePosition) []string {
 	if len(depthGroups) == 0 {
 		return []string{"false"}
@@ -631,95 +866,213 @@ func (f *VisualFormatter) buildPowerAssertTree(expr string, depthGroups [][]Valu
 	var result []string
 	exprWidth := visualWidth(expr)
 
-	// Build a single combined pipe line and value line for each depth
+	// Collect all unique positions across all depths for connecting pipes
+	allPositions := make(map[int]bool)
 	for _, positions := range depthGroups {
-		// For power-assert style, try to fit all positions on the same line if they don't overlap
-		// Only create multiple lines if there are actual overlaps
-		if len(positions) <= 3 && !f.hasSignificantOverlaps(positions) {
-			// Simple case: put all positions on the same line
-			pipeLine := strings.Repeat(" ", exprWidth+100)
-			pipeRunes := []rune(pipeLine)
-			valueLine := strings.Repeat(" ", exprWidth+100)
-			valueRunes := []rune(valueLine)
+		for _, pos := range positions {
+			allPositions[pos.VisualPos] = true
+		}
+	}
 
-			// Place all pipes
+	// Process each depth level separately to show clear hierarchy
+	for depthIdx, positions := range depthGroups {
+		if len(positions) == 0 {
+			continue
+		}
+
+		// Sort positions by their visual position for consistent ordering
+		sort.Slice(positions, func(i, j int) bool {
+			return positions[i].VisualPos < positions[j].VisualPos
+		})
+
+		// Build pipe line with pipes for all relevant positions
+		pipeLine := strings.Repeat(" ", exprWidth+100)
+		pipeRunes := []rune(pipeLine)
+
+		// Place pipes at positions that have values at this depth OR deeper depths
+		for pipePos := range allPositions {
+			// Show pipe if there's a value at this depth OR if there are deeper values at this position
+			showPipe := false
+			
+			// Check if this position has a value at current depth
 			for _, pos := range positions {
-				if pos.VisualPos < len(pipeRunes) {
-					pipeRunes[pos.VisualPos] = '|'
+				if pos.VisualPos == pipePos {
+					showPipe = true
+					break
 				}
 			}
-
-			// Place all values directly under their pipes
-			for _, pos := range positions {
-				valueText := []rune(pos.Value)
-				valuePos := pos.VisualPos
-
-				for i, r := range valueText {
-					if valuePos+i < len(valueRunes) {
-						valueRunes[valuePos+i] = r
-					}
-				}
-			}
-
-			// Add lines
-			pipeStr := strings.TrimRight(string(pipeRunes), " ")
-			if pipeStr != "" {
-				result = append(result, pipeStr)
-			}
-
-			valueStr := strings.TrimRight(string(valueRunes), " ")
-			if valueStr != "" {
-				result = append(result, valueStr)
-			}
-		} else {
-			// Complex case: group to avoid overlaps
-			lineGroups := f.groupPositionsToAvoidOverlap(positions)
-
-			for _, linePositions := range lineGroups {
-				// Build pipe line showing connections to values
-				pipeLine := strings.Repeat(" ", exprWidth+100)
-				pipeRunes := []rune(pipeLine)
-
-				// Place pipes at each position
-				for _, pos := range linePositions {
-					if pos.VisualPos < len(pipeRunes) {
-						pipeRunes[pos.VisualPos] = '|'
-					}
-				}
-
-				// Add the pipe line
-				pipeStr := strings.TrimRight(string(pipeRunes), " ")
-				if pipeStr != "" {
-					result = append(result, pipeStr)
-				}
-
-				// Build value line with proper spacing
-				valueLine := strings.Repeat(" ", exprWidth+100)
-				valueRunes := []rune(valueLine)
-
-				// Place values optimally
-				for _, pos := range linePositions {
-					valuePos := f.calculateOptimalValuePosition(pos, linePositions, exprWidth)
-					valueText := []rune(pos.Value)
-
-					// Place the value
-					for i, r := range valueText {
-						if valuePos+i < len(valueRunes) {
-							valueRunes[valuePos+i] = r
+			
+			// Check if this position has values at deeper depths
+			if !showPipe && depthIdx < len(depthGroups)-1 {
+				for futureDepthIdx := depthIdx + 1; futureDepthIdx < len(depthGroups); futureDepthIdx++ {
+					for _, futurePos := range depthGroups[futureDepthIdx] {
+						if futurePos.VisualPos == pipePos {
+							showPipe = true
+							break
 						}
 					}
+					if showPipe {
+						break
+					}
 				}
+			}
+			
+			if showPipe && pipePos < len(pipeRunes) {
+				pipeRunes[pipePos] = '|'
+			}
+		}
 
-				// Add value line
-				valueStr := strings.TrimRight(string(valueRunes), " ")
-				if valueStr != "" {
-					result = append(result, valueStr)
+		// Add the pipe line
+		pipeStr := strings.TrimRight(string(pipeRunes), " ")
+		if pipeStr != "" {
+			result = append(result, pipeStr)
+		}
+
+		// Build value line with non-overlapping positioning
+		valueLine := strings.Repeat(" ", exprWidth+100)
+		valueRunes := []rune(valueLine)
+
+		// Place values with smart positioning and guaranteed no overlaps
+		usedRanges := make([][]int, 0) // Keep track of used ranges [start, end]
+		for _, pos := range positions {
+			valueText := []rune(pos.Value)
+			valueWidth := visualWidth(pos.Value) // Use visualWidth for accurate width calculation
+			
+			// Find the best position for this value with smart alignment
+			bestPos := f.findSmartValuePosition(pos, valueWidth, usedRanges, exprWidth)
+			
+			// Mark range as used
+			usedRanges = append(usedRanges, []int{bestPos, bestPos + valueWidth})
+
+			// Place the value
+			for i, r := range valueText {
+				if bestPos+i < len(valueRunes) {
+					valueRunes[bestPos+i] = r
 				}
+			}
+		}
+
+		// Add value line
+		valueStr := strings.TrimRight(string(valueRunes), " ")
+		if valueStr != "" {
+			result = append(result, valueStr)
+		}
+
+		// Add spacing between depth levels (except for the last one)
+		if depthIdx < len(depthGroups)-1 {
+			// Add blank line only if next depth has content
+			if depthIdx+1 < len(depthGroups) && len(depthGroups[depthIdx+1]) > 0 {
+				result = append(result, "")
 			}
 		}
 	}
 
 	return result
+}
+
+// findSmartValuePosition finds the best position for a value with smart alignment
+func (f *VisualFormatter) findSmartValuePosition(pos ValuePosition, valueWidth int, usedRanges [][]int, exprWidth int) int {
+	// Calculate expression element width for smart centering
+	exprElementWidth := visualWidth(pos.Expression)
+	preferredPos := pos.VisualPos
+	
+	// For long values or long expressions, try to center the value under the expression
+	if valueWidth > 3 || exprElementWidth > 3 {
+		// Try to center the value under the expression element
+		centerOffset := (exprElementWidth - valueWidth) / 2
+		centeredPos := preferredPos + centerOffset
+		
+		// Ensure centered position is not negative
+		if centeredPos >= 0 && f.isRangeAvailable(centeredPos, centeredPos+valueWidth, usedRanges) {
+			return centeredPos
+		}
+	}
+	
+	// Fallback to original logic
+	return f.findBestValuePositionWithRanges(preferredPos, valueWidth, usedRanges, exprWidth)
+}
+
+// findBestValuePositionWithRanges finds the best position for a value to avoid overlaps using ranges
+func (f *VisualFormatter) findBestValuePositionWithRanges(preferredPos, valueWidth int, usedRanges [][]int, exprWidth int) int {
+	// First, try the preferred position (directly under the pipe)
+	if f.isRangeAvailable(preferredPos, preferredPos+valueWidth, usedRanges) {
+		return preferredPos
+	}
+
+	// If preferred position is not available, try positions to the right with adequate spacing
+	for offset := 1; offset <= 30; offset++ {
+		candidatePos := preferredPos + offset
+		if candidatePos+valueWidth < exprWidth+80 && f.isRangeAvailable(candidatePos, candidatePos+valueWidth, usedRanges) {
+			return candidatePos
+		}
+	}
+
+	// If no position to the right works, try positions to the left
+	for offset := 1; offset <= 20; offset++ {
+		candidatePos := preferredPos - offset
+		if candidatePos >= 0 && f.isRangeAvailable(candidatePos, candidatePos+valueWidth, usedRanges) {
+			return candidatePos
+		}
+	}
+
+	// Fallback: find any available position
+	for pos := 0; pos < exprWidth+50; pos++ {
+		if f.isRangeAvailable(pos, pos+valueWidth, usedRanges) {
+			return pos
+		}
+	}
+
+	// Ultimate fallback: use the preferred position anyway
+	return preferredPos
+}
+
+// isRangeAvailable checks if a range doesn't overlap with any used ranges
+func (f *VisualFormatter) isRangeAvailable(start, end int, usedRanges [][]int) bool {
+	for _, usedRange := range usedRanges {
+		usedStart, usedEnd := usedRange[0], usedRange[1]
+		// Check if ranges overlap (with 1-character padding for safety)
+		if !(end+1 <= usedStart || start >= usedEnd+1) {
+			return false
+		}
+	}
+	return true
+}
+
+// findBestValuePosition finds the best position for a value to avoid overlaps
+func (f *VisualFormatter) findBestValuePosition(preferredPos, valueWidth int, usedPositions map[int]bool, exprWidth int) int {
+	// First, try the preferred position (directly under the pipe)
+	if f.isPositionAvailable(preferredPos, valueWidth, usedPositions) {
+		return preferredPos
+	}
+
+	// If preferred position is not available, try positions to the right
+	for offset := 1; offset <= 20; offset++ {
+		candidatePos := preferredPos + offset
+		if candidatePos+valueWidth < exprWidth+50 && f.isPositionAvailable(candidatePos, valueWidth, usedPositions) {
+			return candidatePos
+		}
+	}
+
+	// If no position to the right works, try positions to the left
+	for offset := 1; offset <= 20; offset++ {
+		candidatePos := preferredPos - offset
+		if candidatePos >= 0 && f.isPositionAvailable(candidatePos, valueWidth, usedPositions) {
+			return candidatePos
+		}
+	}
+
+	// Fallback: use the preferred position anyway (should rarely happen)
+	return preferredPos
+}
+
+// isPositionAvailable checks if a position range is available for placing a value
+func (f *VisualFormatter) isPositionAvailable(pos, width int, usedPositions map[int]bool) bool {
+	for i := 0; i < width; i++ {
+		if usedPositions[pos+i] {
+			return false
+		}
+	}
+	return true
 }
 
 // hasSignificantOverlaps checks if positions would significantly overlap when placed directly under pipes
@@ -865,7 +1218,8 @@ func formatValueCompact(v interface{}) string {
 
 	switch val := v.(type) {
 	case string:
-		if len(val) > 10 {
+		// Improve string truncation with better length limits
+		if len(val) > 15 {
 			return fmt.Sprintf("%q...", val[:10])
 		}
 		return fmt.Sprintf("%q", val)
@@ -886,8 +1240,8 @@ func formatValueCompact(v interface{}) string {
 	default:
 		// For structs and other complex types, try to format them nicely
 		s := formatStructCompact(val)
-		if len(s) > 15 {
-			return s[:15] + "..."
+		if len(s) > 20 {
+			return s[:17] + "..."
 		}
 		return s
 	}
@@ -990,5 +1344,174 @@ func formatMachineSection(result *evaluator.ExpressionResult) string {
 		parts = append(parts, fmt.Sprintf("VARIABLES: %s", strings.Join(vars, ",")))
 	}
 
+	// Add step-by-step evaluation if tree is available
+	if result.Tree != nil {
+		parts = append(parts, "EVALUATION_STEPS:")
+		steps := extractEvaluationSteps(result.Tree)
+		for i, step := range steps {
+			parts = append(parts, fmt.Sprintf("  Step %d: %s", i+1, step))
+		}
+	}
+
 	return strings.Join(parts, "\n") + "\n"
 }
+
+// extractEvaluationSteps traverses the evaluation tree and returns step-by-step evaluation
+func extractEvaluationSteps(tree *evaluator.EvaluationTree) []string {
+	var steps []string
+	var nodeCounter int
+
+	// Helper function to traverse the tree in evaluation order
+	var traverse func(node *evaluator.EvaluationTree)
+	traverse = func(node *evaluator.EvaluationTree) {
+		if node == nil {
+			return
+		}
+
+		// First traverse children (post-order traversal for evaluation order)
+		if node.Left != nil {
+			traverse(node.Left)
+		}
+		if node.Right != nil {
+			traverse(node.Right)
+		}
+
+		// Then process this node
+		nodeCounter++
+		step := formatEvaluationStep(node)
+		if step != "" {
+			steps = append(steps, step)
+		}
+	}
+
+	traverse(tree)
+	return steps
+}
+
+// formatEvaluationStep formats a single evaluation step
+func formatEvaluationStep(node *evaluator.EvaluationTree) string {
+	switch node.Type {
+	case "identifier":
+		if node.Value != nil {
+			return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
+		}
+		return fmt.Sprintf("`%s` => <%s>", node.Text, node.Text)
+	
+	case "literal":
+		return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
+	
+	case "comparison":
+		if node.Left != nil && node.Right != nil {
+			leftVal := formatNodeValue(node.Left)
+			rightVal := formatNodeValue(node.Right)
+			return fmt.Sprintf("`%s` with %s %s %s => %v", 
+				node.Text, leftVal, node.Operator, rightVal, node.Result)
+		}
+		return fmt.Sprintf("`%s` => %v", node.Text, node.Result)
+	
+	case "logical":
+		if node.Left != nil && node.Right != nil {
+			leftVal := formatNodeResult(node.Left)
+			rightVal := formatNodeResult(node.Right)
+			return fmt.Sprintf("`%s` with %s %s %s => %v",
+				node.Text, leftVal, node.Operator, rightVal, node.Result)
+		}
+		return fmt.Sprintf("`%s` => %v", node.Text, node.Result)
+	
+	case "unary":
+		if node.Right != nil {
+			rightVal := formatNodeValue(node.Right)
+			return fmt.Sprintf("`%s` with %s%s => %v",
+				node.Text, node.Operator, rightVal, node.Result)
+		}
+		return fmt.Sprintf("`%s` => %v", node.Text, node.Result)
+	
+	case "call":
+		return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
+	
+	case "index":
+		return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
+	
+	case "selector":
+		return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
+	
+	default:
+		// For any other types, show the expression and its result if available
+		if node.Value != nil {
+			return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
+		}
+		// Result is always available (bool type)
+		return fmt.Sprintf("`%s` => %v", node.Text, node.Result)
+	}
+}
+
+// formatNodeValue returns a string representation of a node's value
+func formatNodeValue(node *evaluator.EvaluationTree) string {
+	if node.Value != nil {
+		return fmt.Sprintf("%v", node.Value)
+	}
+	return fmt.Sprintf("<%s>", node.Text)
+}
+
+// formatNodeResult returns a string representation of a node's result
+func formatNodeResult(node *evaluator.EvaluationTree) string {
+	// Result is always available (bool type)
+	return fmt.Sprintf("%v", node.Result)
+}
+
+// === NEW VISUAL LAYER ARCHITECTURE ===
+
+// createVisualNodes converts ValuePositions to VisualNodes with pipe positions
+func (f *VisualFormatter) createVisualNodes(positions []ValuePosition) []VisualNode {
+	nodes := make([]VisualNode, len(positions))
+	
+	for i, pos := range positions {
+		nodes[i] = VisualNode{
+			Position:        pos,
+			EvaluationDepth: pos.Depth,
+			VisualLayer:     -1, // Not yet assigned
+			PipePosition:    pos.VisualPos, // Fixed pipe position
+			ConflictsWith:   []int{},
+		}
+	}
+	
+	return nodes
+}
+
+// detectConflicts builds a conflict map between visual nodes
+func (f *VisualFormatter) detectConflicts(nodes []VisualNode) ConflictMap {
+	conflictMap := ConflictMap{
+		Conflicts: make(map[int][]int),
+	}
+	
+	for i, nodeA := range nodes {
+		for j, nodeB := range nodes {
+			if i >= j {
+				continue // Avoid duplicates and self-comparison
+			}
+			
+			// Check if the values would overlap if placed at the same layer
+			if f.nodesWouldOverlap(nodeA, nodeB) {
+				conflictMap.Conflicts[i] = append(conflictMap.Conflicts[i], j)
+				conflictMap.Conflicts[j] = append(conflictMap.Conflicts[j], i)
+			}
+		}
+	}
+	
+	return conflictMap
+}
+
+// nodesWouldOverlap checks if two nodes would overlap if placed on the same layer
+func (f *VisualFormatter) nodesWouldOverlap(nodeA, nodeB VisualNode) bool {
+	// Calculate the space needed for each value
+	valueAStart := nodeA.PipePosition
+	valueAEnd := valueAStart + visualWidth(nodeA.Position.Value)
+	
+	valueBStart := nodeB.PipePosition
+	valueBEnd := valueBStart + visualWidth(nodeB.Position.Value)
+	
+	// Check for overlap with minimal spacing (1 character)
+	return !(valueAEnd+1 <= valueBStart || valueBEnd+1 <= valueAStart)
+}
+
+
