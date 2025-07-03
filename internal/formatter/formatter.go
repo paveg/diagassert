@@ -56,78 +56,26 @@ func BuildDiagnosticOutputWithEvaluator(file string, line int, result *evaluator
 
 // BuildDiagnosticOutputWithEvaluatorAndContext constructs enhanced diagnostic output using evaluator results and assertion context.
 func BuildDiagnosticOutputWithEvaluatorAndContext(file string, line int, result *evaluator.ExpressionResult, ctx *AssertionContext, opts Options) string {
-	var b strings.Builder
+	// Use visual formatter for power-assert style output
+	visualFormatter := NewVisualFormatter()
 
-	// Build the basic failure message
-	b.WriteString(fmt.Sprintf("ASSERTION FAILED at %s:%d\n", filepath.Base(file), line))
-	b.WriteString(fmt.Sprintf("Expression: %s\n", result.Expression))
-	b.WriteString("Result: false\n")
-
-	// Add evaluation trace if tree is available
-	if result.Tree != nil {
-		b.WriteString("\nEVALUATION TRACE:\n")
-		b.WriteString(formatEvaluationTree(result.Tree, "", true))
+	// Extract custom message from context
+	var customMessage string
+	if ctx != nil && hasMessages(ctx) {
+		customMessage = getCombinedMessage(ctx)
 	}
 
-	// Add variable values if available
-	if len(result.Variables) > 0 {
-		b.WriteString("\nVARIABLES:\n")
-		for name, value := range result.Variables {
-			b.WriteString(fmt.Sprintf("  %s = %v (%T)\n", name, value, value))
+	// Merge context values into result variables if available
+	if ctx != nil && hasValues(ctx) {
+		if result.Variables == nil {
+			result.Variables = make(map[string]interface{})
 		}
-	}
-
-	// Add context information if available
-	if ctx != nil {
-		// Add custom messages
-		if hasMessages(ctx) {
-			b.WriteString("\nCUSTOM MESSAGE:\n")
-			b.WriteString(getCombinedMessage(ctx) + "\n")
-		}
-
-		// Add captured values
-		if hasValues(ctx) {
-			b.WriteString("\nCAPTURED VALUES:\n")
-			for _, value := range ctx.Values {
-				b.WriteString(fmt.Sprintf("  %s = %v (%T)\n", value.Name, value.Value, value.Value))
-			}
+		for _, value := range ctx.Values {
+			result.Variables[value.Name] = value.Value
 		}
 	}
 
-	// Machine-readable section (controlled by environment variable)
-	if opts.IncludeMachineReadable {
-		b.WriteString("\n[MACHINE_READABLE_START]\n")
-		b.WriteString(fmt.Sprintf("EXPR: %s\n", result.Expression))
-		b.WriteString("RESULT: false\n")
-
-		// Add tree structure for machine parsing
-		if result.Tree != nil {
-			b.WriteString(formatMachineReadableTree(result.Tree))
-		}
-
-		// Add failure reason analysis
-		if failureReason := analyzeFallureReason(result.Tree); failureReason != "" {
-			b.WriteString(fmt.Sprintf("FAIL_REASON: %s\n", failureReason))
-		}
-
-		// Add context in machine-readable format
-		if ctx != nil {
-			if hasMessages(ctx) {
-				b.WriteString(fmt.Sprintf("CUSTOM_MESSAGE: %s\n", getCombinedMessage(ctx)))
-			}
-			if hasValues(ctx) {
-				b.WriteString("CAPTURED_VALUES_START\n")
-				for _, value := range ctx.Values {
-					b.WriteString(fmt.Sprintf("VALUE: %s = %v (%T)\n", value.Name, value.Value, value.Value))
-				}
-				b.WriteString("CAPTURED_VALUES_END\n")
-			}
-		}
-
-		b.WriteString("[MACHINE_READABLE_END]\n")
-	}
-
-	return b.String()
+	return visualFormatter.FormatVisualWithContext(result, filepath.Base(file), line, customMessage, ctx)
 }
 
 // hasValues returns true if the context contains any values
