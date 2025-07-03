@@ -1250,7 +1250,7 @@ func formatValueCompact(v interface{}) string {
 	case string:
 		// Improve string truncation with better length limits
 		if len(val) > 15 {
-			return fmt.Sprintf("%q...", val[:10])
+			return fmt.Sprintf("%q...", val[:15])
 		}
 		return fmt.Sprintf("%q", val)
 	case []int:
@@ -1271,7 +1271,7 @@ func formatValueCompact(v interface{}) string {
 		// For structs and other complex types, try to format them nicely
 		s := formatStructCompact(val)
 		if len(s) > 20 {
-			return s[:17] + "..."
+			return s[:20] + "..."
 		}
 		return s
 	}
