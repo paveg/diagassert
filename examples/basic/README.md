@@ -58,3 +58,19 @@ go run main.go
 
 You'll see assertion failures with detailed diagnostic information, followed by
 successful assertions that produce no output (as expected).
+
+### Current Limitations
+
+**Note**: The current implementation shows placeholder values like `<x>` instead
+of actual variable values. This is because Phase 3 (Advanced Expression Support)
+is still in progress. The AST parsing and tree construction are complete, but
+runtime variable value extraction is not yet fully implemented.
+
+For actual variable values, you can use the Value Capture API:
+
+```go
+x := 10
+diagassert.Assert(t, x > 20, diagassert.V("x", x))
+```
+
+This will show the real value of `x` in the diagnostic output.

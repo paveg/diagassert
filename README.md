@@ -30,6 +30,19 @@ func Assert(t testing.TB, expr bool)
 func Require(t testing.TB, expr bool)
 ```
 
+### Enhanced API (Value Capture)
+
+```go
+// Capture individual values
+diagassert.Assert(t, expr, diagassert.V("x", x))
+
+// Capture multiple values
+diagassert.Assert(t, expr, diagassert.Values{"x": x, "y": y})
+
+// Mix values and custom messages
+diagassert.Assert(t, expr, diagassert.V("x", x), "Custom message")
+```
+
 ### Configuration (Environment Variables)
 
 - `DIAGASSERT_MACHINE_READABLE`: "true" (default) | "false"
@@ -80,9 +93,17 @@ RESULT: false
 ## Roadmap
 
 - **Phase 1** ✅: Basic expression extraction and display
-- **Phase 2** ✅: Variable value display and evaluation trees
-- **Phase 3** (In Progress): Advanced expression support (methods, fields)
-- **Phase 4**: Enhanced machine-readable output for AI tools
+- **Phase 2** ✅: Expression evaluation and tree building
+- **Phase 3** 🔄: Advanced expression support (In Progress)
+  - ✅ AST parsing and tree construction
+  - ✅ Expression structure analysis  
+  - ❌ Runtime variable value extraction (placeholder only)
+  - ❌ Struct field value display
+  - ❌ Method call result display
+- **Phase 4** ✅: Enhanced machine-readable output for AI tools
+- **Phase 5** ✅: Value capture API (`V()`, `Values{}`)
+- **Phase 6** 🔄: Output format extensions (Planned)
+- **Phase 7** 🔄: Performance optimizations (Planned)
 
 ## Documentation
 

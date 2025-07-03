@@ -14,18 +14,18 @@ Simple usage patterns showing the core functionality:
 - String operations
 - Boolean logic
 
-### [Advanced Usage](./advanced/)
+### Advanced Usage (Coming Soon)
 
-Complex expressions and advanced patterns:
+Complex expressions and advanced patterns will be added as Phase 3 development progresses:
 
-- Nested expressions
-- Method calls
-- Struct field access
+- Nested expressions with real variable values
+- Method calls with result display
+- Struct field access with actual values
 - Complex logical combinations
 
-### [Integration Examples](./integration/)
+### Integration Examples (Planned)
 
-Real-world usage scenarios:
+Real-world usage scenarios to be added:
 
 - Unit testing patterns
 - Integration with existing test suites
@@ -34,18 +34,14 @@ Real-world usage scenarios:
 
 ## Running Examples
 
-Each example can be run independently:
+Currently available examples:
 
 ```bash
 # Run basic examples
 cd examples/basic && go run main.go
-
-# Run advanced examples  
-cd examples/advanced && go run main.go
-
-# Run integration examples
-cd examples/integration && go run main.go
 ```
+
+Future examples will be added as development progresses.
 
 ## Testing Examples
 
@@ -55,6 +51,6 @@ Examples include their own tests:
 # Test all examples
 go test ./examples/...
 
-# Test specific example
+# Test basic example
 cd examples/basic && go test
 ```
