@@ -97,9 +97,9 @@ func TestAssert_WithValueCapture(t *testing.T) {
 
 		output := mock.GetOutput()
 
-		// Structured evaluation tree is displayed
-		if !strings.Contains(output, "EVALUATION TRACE:") {
-			t.Errorf("Should show evaluation trace, got: %s", output)
+		// Power-assert style output is displayed
+		if !strings.Contains(output, "assert(") {
+			t.Errorf("Should show power-assert style output, got: %s", output)
 		}
 
 		// Provided values are used
@@ -136,9 +136,9 @@ func TestAssert_NoValueCapture(t *testing.T) {
 		}
 
 		// Values are not displayed (since not provided)
-		// But expression structure is displayed
-		if !strings.Contains(output, "EVALUATION TRACE:") {
-			t.Errorf("Should show evaluation trace structure, got: %s", output)
+		// But power-assert style output is displayed
+		if !strings.Contains(output, "assert(") {
+			t.Errorf("Should show power-assert style output, got: %s", output)
 		}
 	})
 }
