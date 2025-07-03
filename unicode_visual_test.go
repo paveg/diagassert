@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/paveg/diagassert"
+	"github.com/paveg/diagassert/internal/testutil"
 )
 
 // TestUnicodeVisualFormatter tests the Unicode-aware visual formatter
@@ -100,7 +101,7 @@ func TestUnicodeVisualFormatter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := newMockT()
+			mock := testutil.NewMockT()
 
 			// Note: We can't easily test dynamic Unicode expressions with actual parsing
 			// This test focuses on the visual formatter's Unicode support
@@ -110,7 +111,7 @@ func TestUnicodeVisualFormatter(t *testing.T) {
 			diagassert.Assert(mock, false,
 				diagassert.Values(tt.values))
 
-			output := mock.getOutput()
+			output := mock.GetOutput()
 			t.Logf("Unicode Expression (intended): %s", tt.expr)
 			t.Logf("Output:\n%s", output)
 
@@ -229,13 +230,13 @@ func TestCharacterPositioning(t *testing.T) {
 func TestComplexUnicodeExpressions(t *testing.T) {
 	tests := []struct {
 		name        string
-		assertion   func(*mockT)
+		assertion   func(*testutil.MockT)
 		expectFail  bool
 		expectParts []string
 	}{
 		{
 			name: "nested Japanese property access",
-			assertion: func(mock *mockT) {
+			assertion: func(mock *testutil.MockT) {
 				user := struct {
 					名前 string
 					年齢 int
@@ -255,7 +256,7 @@ func TestComplexUnicodeExpressions(t *testing.T) {
 		},
 		{
 			name: "Korean logical expression",
-			assertion: func(mock *mockT) {
+			assertion: func(mock *testutil.MockT) {
 				나이 := 16
 				면허 := false
 				diagassert.Assert(mock, 나이 >= 18 && 면허,
@@ -275,7 +276,7 @@ func TestComplexUnicodeExpressions(t *testing.T) {
 		},
 		{
 			name: "Chinese with comparison",
-			assertion: func(mock *mockT) {
+			assertion: func(mock *testutil.MockT) {
 				价格 := 80
 				最低价格 := 100
 				diagassert.Assert(mock, 价格 > 最低价格,
@@ -295,14 +296,14 @@ func TestComplexUnicodeExpressions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := newMockT()
+			mock := testutil.NewMockT()
 			tt.assertion(mock)
 
-			if mock.failed != tt.expectFail {
-				t.Errorf("Expected fail=%v, got fail=%v", tt.expectFail, mock.failed)
+			if mock.Failed() != tt.expectFail {
+				t.Errorf("Expected fail=%v, got fail=%v", tt.expectFail, mock.Failed())
 			}
 
-			output := mock.getOutput()
+			output := mock.GetOutput()
 			t.Logf("Complex Unicode Output:\n%s", output)
 
 			for _, part := range tt.expectParts {
