@@ -107,18 +107,18 @@ type ValuePosition struct {
 
 // VisualNode separates evaluation depth from visual layers for rendering
 type VisualNode struct {
-	Position      ValuePosition
-	EvaluationDepth int      // Semantic depth in the evaluation tree
-	VisualLayer   int      // Visual layer for rendering (may differ from evaluation depth)
-	PipePosition  int      // Fixed pipe position in the expression
-	ConflictsWith []int    // Indices of other nodes this conflicts with
+	Position        ValuePosition
+	EvaluationDepth int   // Semantic depth in the evaluation tree
+	VisualLayer     int   // Visual layer for rendering (may differ from evaluation depth)
+	PipePosition    int   // Fixed pipe position in the expression
+	ConflictsWith   []int // Indices of other nodes this conflicts with
 }
 
 // LayerAssignment manages the assignment of values to visual layers
 type LayerAssignment struct {
-	MaxLayer int                    // Maximum layer number assigned
-	Layers   [][]VisualNode         // Nodes grouped by visual layer
-	PipePositions map[int]bool      // Track fixed pipe positions
+	MaxLayer      int            // Maximum layer number assigned
+	Layers        [][]VisualNode // Nodes grouped by visual layer
+	PipePositions map[int]bool   // Track fixed pipe positions
 }
 
 // Range represents an occupied interval in a visual layer
@@ -692,7 +692,7 @@ func (f *VisualFormatter) assignVisualLayers(positions []ValuePosition) LayerAss
 		Layers:        make([][]VisualNode, 0),
 		PipePositions: make(map[int]bool),
 	}
-	
+
 	// Convert positions to visual nodes
 	nodes := make([]VisualNode, len(positions))
 	for i, pos := range positions {
@@ -704,7 +704,7 @@ func (f *VisualFormatter) assignVisualLayers(positions []ValuePosition) LayerAss
 		}
 		assignment.PipePositions[pos.VisualPos] = true
 	}
-	
+
 	// Sort nodes by priority (higher priority gets better layer assignment)
 	sort.Slice(nodes, func(i, j int) bool {
 		if nodes[i].Position.Priority != nodes[j].Position.Priority {
@@ -712,11 +712,11 @@ func (f *VisualFormatter) assignVisualLayers(positions []ValuePosition) LayerAss
 		}
 		return nodes[i].PipePosition < nodes[j].PipePosition
 	})
-	
+
 	// Assign each node to the lowest available layer
 	for i := range nodes {
 		layerAssigned := false
-		
+
 		// Try to place in existing layers
 		for layerIdx := 0; layerIdx < len(assignment.Layers); layerIdx++ {
 			if f.canPlaceInLayer(nodes[i], assignment.Layers[layerIdx]) {
@@ -726,7 +726,7 @@ func (f *VisualFormatter) assignVisualLayers(positions []ValuePosition) LayerAss
 				break
 			}
 		}
-		
+
 		// Create new layer if needed
 		if !layerAssigned {
 			newLayer := []VisualNode{nodes[i]}
@@ -735,14 +735,14 @@ func (f *VisualFormatter) assignVisualLayers(positions []ValuePosition) LayerAss
 			assignment.MaxLayer = nodes[i].VisualLayer
 		}
 	}
-	
+
 	return assignment
 }
 
 // canPlaceInLayer checks if a node can be placed in the given layer without conflicts
 func (f *VisualFormatter) canPlaceInLayer(node VisualNode, layer []VisualNode) bool {
 	nodeRange := f.getValueRange(node)
-	
+
 	for _, existing := range layer {
 		existingRange := f.getValueRange(existing)
 		if f.rangesOverlap(nodeRange.Start, nodeRange.End, existingRange.Start, existingRange.End) {
@@ -765,32 +765,32 @@ func (f *VisualFormatter) buildPowerAssertTreeWithLayers(expr string, positions 
 	if len(positions) == 0 {
 		return []string{"false"}
 	}
-	
+
 	// Assign values to visual layers
 	layerAssignment := f.assignVisualLayers(positions)
-	
+
 	var result []string
 	exprWidth := visualWidth(expr)
-	
+
 	// Build each visual layer
 	for layerIdx := 0; layerIdx <= layerAssignment.MaxLayer; layerIdx++ {
 		if layerIdx >= len(layerAssignment.Layers) {
 			continue
 		}
-		
+
 		layer := layerAssignment.Layers[layerIdx]
 		if len(layer) == 0 {
 			continue
 		}
-		
+
 		// Build pipe line with all relevant pipe positions
 		pipeLine := strings.Repeat(" ", exprWidth+100)
 		pipeRunes := []rune(pipeLine)
-		
+
 		// Place pipes for values in this layer AND pipes that continue from deeper layers
 		for pipePos := range layerAssignment.PipePositions {
 			showPipe := false
-			
+
 			// Show pipe if there's a value at this layer
 			for _, node := range layer {
 				if node.PipePosition == pipePos {
@@ -798,7 +798,7 @@ func (f *VisualFormatter) buildPowerAssertTreeWithLayers(expr string, positions 
 					break
 				}
 			}
-			
+
 			// Show pipe if there are values at deeper layers
 			if !showPipe && layerIdx < layerAssignment.MaxLayer {
 				for futureLayerIdx := layerIdx + 1; futureLayerIdx < len(layerAssignment.Layers); futureLayerIdx++ {
@@ -813,27 +813,27 @@ func (f *VisualFormatter) buildPowerAssertTreeWithLayers(expr string, positions 
 					}
 				}
 			}
-			
+
 			if showPipe && pipePos < len(pipeRunes) {
 				pipeRunes[pipePos] = '|'
 			}
 		}
-		
+
 		// Add pipe line
 		pipeStr := strings.TrimRight(string(pipeRunes), " ")
 		if pipeStr != "" {
 			result = append(result, pipeStr)
 		}
-		
+
 		// Build value line
 		valueLine := strings.Repeat(" ", exprWidth+100)
 		valueRunes := []rune(valueLine)
-		
+
 		// Place values at their exact pipe positions (no smart centering)
 		for _, node := range layer {
 			valueText := []rune(node.Position.Value)
 			startPos := node.PipePosition
-			
+
 			// Place value directly under its pipe
 			for i, r := range valueText {
 				if startPos+i < len(valueRunes) {
@@ -841,374 +841,36 @@ func (f *VisualFormatter) buildPowerAssertTreeWithLayers(expr string, positions 
 				}
 			}
 		}
-		
+
 		// Add value line
 		valueStr := strings.TrimRight(string(valueRunes), " ")
 		if valueStr != "" {
 			result = append(result, valueStr)
 		}
-		
+
 		// Add spacing between layers (except for the last layer)
 		if layerIdx < layerAssignment.MaxLayer {
 			result = append(result, "")
 		}
 	}
-	
-	return result
-}
-
-// buildPowerAssertTree builds the classic power-assert tree structure (DEPRECATED - use buildPowerAssertTreeWithLayers)
-func (f *VisualFormatter) buildPowerAssertTree(expr string, depthGroups [][]ValuePosition) []string {
-	if len(depthGroups) == 0 {
-		return []string{"false"}
-	}
-
-	var result []string
-	exprWidth := visualWidth(expr)
-
-	// Collect all unique positions across all depths for connecting pipes
-	allPositions := make(map[int]bool)
-	for _, positions := range depthGroups {
-		for _, pos := range positions {
-			allPositions[pos.VisualPos] = true
-		}
-	}
-
-	// Process each depth level separately to show clear hierarchy
-	for depthIdx, positions := range depthGroups {
-		if len(positions) == 0 {
-			continue
-		}
-
-		// Sort positions by their visual position for consistent ordering
-		sort.Slice(positions, func(i, j int) bool {
-			return positions[i].VisualPos < positions[j].VisualPos
-		})
-
-		// Build pipe line with pipes for all relevant positions
-		pipeLine := strings.Repeat(" ", exprWidth+100)
-		pipeRunes := []rune(pipeLine)
-
-		// Place pipes at positions that have values at this depth OR deeper depths
-		for pipePos := range allPositions {
-			// Show pipe if there's a value at this depth OR if there are deeper values at this position
-			showPipe := false
-			
-			// Check if this position has a value at current depth
-			for _, pos := range positions {
-				if pos.VisualPos == pipePos {
-					showPipe = true
-					break
-				}
-			}
-			
-			// Check if this position has values at deeper depths
-			if !showPipe && depthIdx < len(depthGroups)-1 {
-				for futureDepthIdx := depthIdx + 1; futureDepthIdx < len(depthGroups); futureDepthIdx++ {
-					for _, futurePos := range depthGroups[futureDepthIdx] {
-						if futurePos.VisualPos == pipePos {
-							showPipe = true
-							break
-						}
-					}
-					if showPipe {
-						break
-					}
-				}
-			}
-			
-			if showPipe && pipePos < len(pipeRunes) {
-				pipeRunes[pipePos] = '|'
-			}
-		}
-
-		// Add the pipe line
-		pipeStr := strings.TrimRight(string(pipeRunes), " ")
-		if pipeStr != "" {
-			result = append(result, pipeStr)
-		}
-
-		// Build value line with non-overlapping positioning
-		valueLine := strings.Repeat(" ", exprWidth+100)
-		valueRunes := []rune(valueLine)
-
-		// Place values with smart positioning and guaranteed no overlaps
-		usedRanges := make([][]int, 0) // Keep track of used ranges [start, end]
-		for _, pos := range positions {
-			valueText := []rune(pos.Value)
-			valueWidth := visualWidth(pos.Value) // Use visualWidth for accurate width calculation
-			
-			// Find the best position for this value with smart alignment
-			bestPos := f.findSmartValuePosition(pos, valueWidth, usedRanges, exprWidth)
-			
-			// Mark range as used
-			usedRanges = append(usedRanges, []int{bestPos, bestPos + valueWidth})
-
-			// Place the value
-			for i, r := range valueText {
-				if bestPos+i < len(valueRunes) {
-					valueRunes[bestPos+i] = r
-				}
-			}
-		}
-
-		// Add value line
-		valueStr := strings.TrimRight(string(valueRunes), " ")
-		if valueStr != "" {
-			result = append(result, valueStr)
-		}
-
-		// Add spacing between depth levels (except for the last one)
-		if depthIdx < len(depthGroups)-1 {
-			// Add blank line only if next depth has content
-			if depthIdx+1 < len(depthGroups) && len(depthGroups[depthIdx+1]) > 0 {
-				result = append(result, "")
-			}
-		}
-	}
 
 	return result
 }
 
-// findSmartValuePosition finds the best position for a value with smart alignment
-func (f *VisualFormatter) findSmartValuePosition(pos ValuePosition, valueWidth int, usedRanges [][]int, exprWidth int) int {
-	// Calculate expression element width for smart centering
-	exprElementWidth := visualWidth(pos.Expression)
-	preferredPos := pos.VisualPos
-	
-	// For long values or long expressions, try to center the value under the expression
-	if valueWidth > 3 || exprElementWidth > 3 {
-		// Try to center the value under the expression element
-		centerOffset := (exprElementWidth - valueWidth) / 2
-		centeredPos := preferredPos + centerOffset
-		
-		// Ensure centered position is not negative
-		if centeredPos >= 0 && f.isRangeAvailable(centeredPos, centeredPos+valueWidth, usedRanges) {
-			return centeredPos
-		}
-	}
-	
-	// Fallback to original logic
-	return f.findBestValuePositionWithRanges(preferredPos, valueWidth, usedRanges, exprWidth)
-}
 
-// findBestValuePositionWithRanges finds the best position for a value to avoid overlaps using ranges
-func (f *VisualFormatter) findBestValuePositionWithRanges(preferredPos, valueWidth int, usedRanges [][]int, exprWidth int) int {
-	// First, try the preferred position (directly under the pipe)
-	if f.isRangeAvailable(preferredPos, preferredPos+valueWidth, usedRanges) {
-		return preferredPos
-	}
 
-	// If preferred position is not available, try positions to the right with adequate spacing
-	for offset := 1; offset <= 30; offset++ {
-		candidatePos := preferredPos + offset
-		if candidatePos+valueWidth < exprWidth+80 && f.isRangeAvailable(candidatePos, candidatePos+valueWidth, usedRanges) {
-			return candidatePos
-		}
-	}
 
-	// If no position to the right works, try positions to the left
-	for offset := 1; offset <= 20; offset++ {
-		candidatePos := preferredPos - offset
-		if candidatePos >= 0 && f.isRangeAvailable(candidatePos, candidatePos+valueWidth, usedRanges) {
-			return candidatePos
-		}
-	}
 
-	// Fallback: find any available position
-	for pos := 0; pos < exprWidth+50; pos++ {
-		if f.isRangeAvailable(pos, pos+valueWidth, usedRanges) {
-			return pos
-		}
-	}
 
-	// Ultimate fallback: use the preferred position anyway
-	return preferredPos
-}
 
-// isRangeAvailable checks if a range doesn't overlap with any used ranges
-func (f *VisualFormatter) isRangeAvailable(start, end int, usedRanges [][]int) bool {
-	for _, usedRange := range usedRanges {
-		usedStart, usedEnd := usedRange[0], usedRange[1]
-		// Check if ranges overlap (with 1-character padding for safety)
-		if !(end+1 <= usedStart || start >= usedEnd+1) {
-			return false
-		}
-	}
-	return true
-}
 
-// findBestValuePosition finds the best position for a value to avoid overlaps
-func (f *VisualFormatter) findBestValuePosition(preferredPos, valueWidth int, usedPositions map[int]bool, exprWidth int) int {
-	// First, try the preferred position (directly under the pipe)
-	if f.isPositionAvailable(preferredPos, valueWidth, usedPositions) {
-		return preferredPos
-	}
-
-	// If preferred position is not available, try positions to the right
-	for offset := 1; offset <= 20; offset++ {
-		candidatePos := preferredPos + offset
-		if candidatePos+valueWidth < exprWidth+50 && f.isPositionAvailable(candidatePos, valueWidth, usedPositions) {
-			return candidatePos
-		}
-	}
-
-	// If no position to the right works, try positions to the left
-	for offset := 1; offset <= 20; offset++ {
-		candidatePos := preferredPos - offset
-		if candidatePos >= 0 && f.isPositionAvailable(candidatePos, valueWidth, usedPositions) {
-			return candidatePos
-		}
-	}
-
-	// Fallback: use the preferred position anyway (should rarely happen)
-	return preferredPos
-}
-
-// isPositionAvailable checks if a position range is available for placing a value
-func (f *VisualFormatter) isPositionAvailable(pos, width int, usedPositions map[int]bool) bool {
-	for i := 0; i < width; i++ {
-		if usedPositions[pos+i] {
-			return false
-		}
-	}
-	return true
-}
-
-// hasSignificantOverlaps checks if positions would significantly overlap when placed directly under pipes
-func (f *VisualFormatter) hasSignificantOverlaps(positions []ValuePosition) bool {
-	for i, pos1 := range positions {
-		for j, pos2 := range positions {
-			if i >= j {
-				continue
-			}
-
-			// Check if values would overlap when placed directly under their pipes
-			pos1End := pos1.VisualPos + visualWidth(pos1.Value)
-			pos2Start := pos2.VisualPos
-
-			if pos1End > pos2Start {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// calculateOptimalValuePosition calculates the best position for a value to minimize overlaps
-func (f *VisualFormatter) calculateOptimalValuePosition(pos ValuePosition, linePositions []ValuePosition, exprWidth int) int {
-	// Start with the position directly under the pipe
-	basePos := pos.VisualPos
-	valueWidth := visualWidth(pos.Value)
-
-	// Check for conflicts with other values in the same line
-	for _, other := range linePositions {
-		if other.VisualPos == pos.VisualPos {
-			continue // Skip self
-		}
-
-		// Calculate where this other value will be placed
-		otherPos := other.VisualPos
-		otherWidth := visualWidth(other.Value)
-
-		// If there's an overlap, try to find a better position
-		if f.rangesOverlap(basePos, basePos+valueWidth, otherPos, otherPos+otherWidth) {
-			// Try moving to the right of the conflicting value
-			candidatePos := otherPos + otherWidth + 1
-			if candidatePos < exprWidth+50 { // Don't go too far right
-				conflict := false
-				// Check if this new position conflicts with other values
-				for _, check := range linePositions {
-					if check.VisualPos == pos.VisualPos || check.VisualPos == other.VisualPos {
-						continue
-					}
-					checkPos := check.VisualPos
-					checkWidth := visualWidth(check.Value)
-					if f.rangesOverlap(candidatePos, candidatePos+valueWidth, checkPos, checkPos+checkWidth) {
-						conflict = true
-						break
-					}
-				}
-				if !conflict {
-					basePos = candidatePos
-				}
-			}
-		}
-	}
-
-	return basePos
-}
 
 // rangesOverlap checks if two ranges overlap
 func (f *VisualFormatter) rangesOverlap(start1, end1, start2, end2 int) bool {
 	return !(end1 <= start2 || end2 <= start1)
 }
 
-// groupPositionsByDepth groups positions by their depth level.
-func (f *VisualFormatter) groupPositionsByDepth(positions []ValuePosition) [][]ValuePosition {
-	if len(positions) == 0 {
-		return nil
-	}
 
-	var groups [][]ValuePosition
-	currentDepth := positions[0].Depth
-	currentGroup := []ValuePosition{}
-
-	for _, pos := range positions {
-		if pos.Depth != currentDepth {
-			if len(currentGroup) > 0 {
-				groups = append(groups, currentGroup)
-			}
-			currentGroup = []ValuePosition{pos}
-			currentDepth = pos.Depth
-		} else {
-			currentGroup = append(currentGroup, pos)
-		}
-	}
-
-	if len(currentGroup) > 0 {
-		groups = append(groups, currentGroup)
-	}
-
-	return groups
-}
-
-// groupPositionsToAvoidOverlap groups positions within a depth level to avoid overlap.
-func (f *VisualFormatter) groupPositionsToAvoidOverlap(positions []ValuePosition) [][]ValuePosition {
-	if len(positions) == 0 {
-		return nil
-	}
-
-	var lines [][]ValuePosition
-
-	for _, pos := range positions {
-		placed := false
-
-		// Try to place in existing line
-		for i, line := range lines {
-			canPlace := true
-			for _, existing := range line {
-				if valuesOverlap(pos, existing) {
-					canPlace = false
-					break
-				}
-			}
-
-			if canPlace {
-				lines[i] = append(lines[i], pos)
-				placed = true
-				break
-			}
-		}
-
-		// Create new line if needed
-		if !placed {
-			lines = append(lines, []ValuePosition{pos})
-		}
-	}
-
-	return lines
-}
 
 // formatValueCompact formats a value in a compact way.
 func formatValueCompact(v interface{}) string {
@@ -1396,19 +1058,19 @@ func formatEvaluationStep(node *evaluator.EvaluationTree) string {
 			return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
 		}
 		return fmt.Sprintf("`%s` => <%s>", node.Text, node.Text)
-	
+
 	case "literal":
 		return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
-	
+
 	case "comparison":
 		if node.Left != nil && node.Right != nil {
 			leftVal := formatNodeValue(node.Left)
 			rightVal := formatNodeValue(node.Right)
-			return fmt.Sprintf("`%s` with %s %s %s => %v", 
+			return fmt.Sprintf("`%s` with %s %s %s => %v",
 				node.Text, leftVal, node.Operator, rightVal, node.Result)
 		}
 		return fmt.Sprintf("`%s` => %v", node.Text, node.Result)
-	
+
 	case "logical":
 		if node.Left != nil && node.Right != nil {
 			leftVal := formatNodeResult(node.Left)
@@ -1417,7 +1079,7 @@ func formatEvaluationStep(node *evaluator.EvaluationTree) string {
 				node.Text, leftVal, node.Operator, rightVal, node.Result)
 		}
 		return fmt.Sprintf("`%s` => %v", node.Text, node.Result)
-	
+
 	case "unary":
 		if node.Right != nil {
 			rightVal := formatNodeValue(node.Right)
@@ -1425,16 +1087,16 @@ func formatEvaluationStep(node *evaluator.EvaluationTree) string {
 				node.Text, node.Operator, rightVal, node.Result)
 		}
 		return fmt.Sprintf("`%s` => %v", node.Text, node.Result)
-	
+
 	case "call":
 		return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
-	
+
 	case "index":
 		return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
-	
+
 	case "selector":
 		return fmt.Sprintf("`%s` => %v", node.Text, node.Value)
-	
+
 	default:
 		// For any other types, show the expression and its result if available
 		if node.Value != nil {
@@ -1464,17 +1126,17 @@ func formatNodeResult(node *evaluator.EvaluationTree) string {
 // createVisualNodes converts ValuePositions to VisualNodes with pipe positions
 func (f *VisualFormatter) createVisualNodes(positions []ValuePosition) []VisualNode {
 	nodes := make([]VisualNode, len(positions))
-	
+
 	for i, pos := range positions {
 		nodes[i] = VisualNode{
 			Position:        pos,
 			EvaluationDepth: pos.Depth,
-			VisualLayer:     -1, // Not yet assigned
+			VisualLayer:     -1,            // Not yet assigned
 			PipePosition:    pos.VisualPos, // Fixed pipe position
 			ConflictsWith:   []int{},
 		}
 	}
-	
+
 	return nodes
 }
 
@@ -1483,13 +1145,13 @@ func (f *VisualFormatter) detectConflicts(nodes []VisualNode) ConflictMap {
 	conflictMap := ConflictMap{
 		Conflicts: make(map[int][]int),
 	}
-	
+
 	for i, nodeA := range nodes {
 		for j, nodeB := range nodes {
 			if i >= j {
 				continue // Avoid duplicates and self-comparison
 			}
-			
+
 			// Check if the values would overlap if placed at the same layer
 			if f.nodesWouldOverlap(nodeA, nodeB) {
 				conflictMap.Conflicts[i] = append(conflictMap.Conflicts[i], j)
@@ -1497,7 +1159,7 @@ func (f *VisualFormatter) detectConflicts(nodes []VisualNode) ConflictMap {
 			}
 		}
 	}
-	
+
 	return conflictMap
 }
 
@@ -1506,12 +1168,10 @@ func (f *VisualFormatter) nodesWouldOverlap(nodeA, nodeB VisualNode) bool {
 	// Calculate the space needed for each value
 	valueAStart := nodeA.PipePosition
 	valueAEnd := valueAStart + visualWidth(nodeA.Position.Value)
-	
+
 	valueBStart := nodeB.PipePosition
 	valueBEnd := valueBStart + visualWidth(nodeB.Position.Value)
-	
+
 	// Check for overlap with minimal spacing (1 character)
 	return !(valueAEnd+1 <= valueBStart || valueBEnd+1 <= valueAStart)
 }
-
-
