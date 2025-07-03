@@ -1,6 +1,9 @@
 # TDD Implementation Plan
 
-## Phase 1: Basic Features (Week 1)
+**Status Update**: This document shows the original development plan. Many
+phases have been completed or are in progress.
+
+## Phase 1: Basic Features ✅ COMPLETED
 
 ### Step 1.1: Minimal Assert Implementation
 
@@ -38,7 +41,7 @@ func TestAssert_BasicOutput(t *testing.T) {
 }
 ```
 
-## Phase 2: Expression Evaluation (Week 2)
+## Phase 2: Expression Evaluation ✅ COMPLETED
 
 ### Step 2.1: Comparison Operator Support
 
@@ -74,7 +77,10 @@ func TestAssert_LogicalOperators(t *testing.T) {
 }
 ```
 
-## Phase 3: Advanced Expression Support (Week 3)
+## Phase 3: Advanced Expression Support 🔄 IN PROGRESS
+
+**Current Status**: AST parsing and tree construction completed, but runtime
+variable value extraction is using placeholders only.
 
 ### Step 3.1: Struct Field Access
 
@@ -109,7 +115,7 @@ func TestAssert_SliceAccess(t *testing.T) {
 }
 ```
 
-## Phase 4: Machine-Readable Output (Week 4)
+## Phase 4: Machine-Readable Output ✅ COMPLETED
 
 ### Step 4.1: Machine-Readable Section
 
@@ -141,29 +147,45 @@ func TestAssert_FailurePath(t *testing.T) {
 }
 ```
 
-## Phase 5: Context Features (Week 5)
+## Phase 5: Value Capture API ✅ COMPLETED
 
-### Step 5.1: WithContext Option
+**Note**: This phase was implemented differently than originally planned, using
+a more flexible approach.
+
+### Step 5.1: Individual Value Capture
 
 ```go
-func TestAssert_WithContext(t *testing.T) {
+func TestAssert_ValueCapture(t *testing.T) {
+    x := 10
     mockT := new(testing.T)
-    diagassert.AssertWithOptions(mockT, false,
-        diagassert.WithContext("iteration", 3),
-        diagassert.WithContext("test_data", "sample"))
-    // Verify CONTEXT section contains the information
+    diagassert.Assert(mockT, x > 20, diagassert.V("x", x))
+    // Verify output contains actual value of x
 }
 ```
 
-### Step 5.2: Variable History Tracking
+### Step 5.2: Multiple Value Capture
 
 ```go
-func TestAssert_VariableHistory(t *testing.T) {
-    // Verify variable change history is recorded
+func TestAssert_MultipleValues(t *testing.T) {
+    x, y := 10, 20
+    mockT := new(testing.T)
+    diagassert.Assert(mockT, x > y, diagassert.Values{"x": x, "y": y})
+    // Verify output contains actual values of both variables
 }
 ```
 
-## Phase 6: Formatters (Week 6)
+### Step 5.3: Mixed Usage with Messages
+
+```go
+func TestAssert_MixedUsage(t *testing.T) {
+    x := 10
+    mockT := new(testing.T)
+    diagassert.Assert(mockT, x > 20, diagassert.V("x", x), "Custom message")
+    // Verify both values and messages are displayed
+}
+```
+
+## Phase 6: Output Format Extensions 🔄 PLANNED
 
 ### Step 6.1: Markdown Output
 

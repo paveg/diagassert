@@ -100,8 +100,20 @@ func buildTreeFromAST(node ast.Expr, variables map[string]interface{}, fset *tok
 		return buildCallTree(n, variables, fset)
 	case *ast.IndexExpr:
 		return buildIndexTree(n, variables, fset)
+	case *ast.SliceExpr:
+		return buildSliceTree(n, variables, fset)
 	case *ast.ParenExpr:
 		return buildTreeFromAST(n.X, variables, fset)
+	case *ast.ArrayType:
+		return buildArrayTypeTree(n, variables, fset)
+	case *ast.CompositeLit:
+		return buildCompositeLitTree(n, variables, fset)
+	case *ast.FuncLit:
+		return buildFuncLitTree(n, variables, fset)
+	case *ast.TypeAssertExpr:
+		return buildTypeAssertTree(n, variables, fset)
+	case *ast.StarExpr:
+		return buildStarExprTree(n, variables, fset)
 	default:
 		return &EvaluationTree{
 			ID:   getNextNodeID(),
@@ -509,14 +521,32 @@ func getIndexValue(obj, index interface{}) interface{} {
 	}
 
 	val := reflect.ValueOf(obj)
-	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array {
+	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array && val.Kind() != reflect.Map {
 		return nil
 	}
 
+	// Handle map indexing
+	if val.Kind() == reflect.Map {
+		indexVal := reflect.ValueOf(index)
+		if !indexVal.Type().AssignableTo(val.Type().Key()) {
+			return nil
+		}
+		result := val.MapIndex(indexVal)
+		if !result.IsValid() {
+			return nil
+		}
+		return result.Interface()
+	}
+
+	// Handle slice/array indexing
 	var idx int
 	switch i := index.(type) {
 	case int:
 		idx = i
+	case int64:
+		idx = int(i)
+	case int32:
+		idx = int(i)
 	default:
 		return nil
 	}
@@ -526,6 +556,278 @@ func getIndexValue(obj, index interface{}) interface{} {
 	}
 
 	return val.Index(idx).Interface()
+}
+
+// buildSliceTree builds tree for slice expressions like "arr[1:3]".
+func buildSliceTree(slice *ast.SliceExpr, variables map[string]interface{}, fset *token.FileSet) *EvaluationTree {
+	baseTree := buildTreeFromAST(slice.X, variables, fset)
+
+	var lowTree, highTree, maxTree *EvaluationTree
+	var text strings.Builder
+
+	text.WriteString(baseTree.Text)
+	text.WriteString("[")
+
+	if slice.Low != nil {
+		lowTree = buildTreeFromAST(slice.Low, variables, fset)
+		text.WriteString(lowTree.Text)
+	}
+
+	text.WriteString(":")
+
+	if slice.High != nil {
+		highTree = buildTreeFromAST(slice.High, variables, fset)
+		text.WriteString(highTree.Text)
+	}
+
+	if slice.Max != nil {
+		text.WriteString(":")
+		maxTree = buildTreeFromAST(slice.Max, variables, fset)
+		text.WriteString(maxTree.Text)
+	}
+
+	text.WriteString("]")
+
+	var value interface{}
+	var result bool
+
+	if baseTree.Value != nil {
+		var low, high, max interface{}
+		if lowTree != nil {
+			low = lowTree.Value
+		}
+		if highTree != nil {
+			high = highTree.Value
+		}
+		if maxTree != nil {
+			max = maxTree.Value
+		}
+
+		if sliceValue := getSliceValue(baseTree.Value, low, high, max); sliceValue != nil {
+			value = sliceValue
+			result = true
+		}
+	}
+
+	children := []*EvaluationTree{baseTree}
+	if lowTree != nil {
+		children = append(children, lowTree)
+	}
+	if highTree != nil {
+		children = append(children, highTree)
+	}
+	if maxTree != nil {
+		children = append(children, maxTree)
+	}
+
+	return &EvaluationTree{
+		ID:       getNextNodeID(),
+		Type:     "slice",
+		Children: children,
+		Value:    value,
+		Result:   result,
+		Text:     text.String(),
+	}
+}
+
+// getSliceValue extracts slice value from an object.
+func getSliceValue(obj, low, high, max interface{}) interface{} {
+	if obj == nil {
+		return nil
+	}
+
+	val := reflect.ValueOf(obj)
+	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array && val.Kind() != reflect.String {
+		return nil
+	}
+
+	length := val.Len()
+
+	// Default slice bounds
+	lowIdx := 0
+	highIdx := length
+	maxIdx := length
+
+	// Parse low bound
+	if low != nil {
+		if idx, ok := convertToInt(low); ok {
+			lowIdx = idx
+		} else {
+			return nil
+		}
+	}
+
+	// Parse high bound
+	if high != nil {
+		if idx, ok := convertToInt(high); ok {
+			highIdx = idx
+		} else {
+			return nil
+		}
+	}
+
+	// Parse max bound (for 3-index slices)
+	if max != nil {
+		if idx, ok := convertToInt(max); ok {
+			maxIdx = idx
+		} else {
+			return nil
+		}
+	}
+
+	// Validate bounds
+	if lowIdx < 0 || lowIdx > length || highIdx < lowIdx || highIdx > length {
+		return nil
+	}
+	if max != nil && (maxIdx < highIdx || maxIdx > length) {
+		return nil
+	}
+
+	// Perform the slice operation
+	if val.Kind() == reflect.String {
+		str := val.String()
+		return str[lowIdx:highIdx]
+	}
+
+	if max != nil {
+		// 3-index slice
+		return val.Slice3(lowIdx, highIdx, maxIdx).Interface()
+	}
+
+	// 2-index slice
+	return val.Slice(lowIdx, highIdx).Interface()
+}
+
+// convertToInt converts various numeric types to int.
+func convertToInt(value interface{}) (int, bool) {
+	switch v := value.(type) {
+	case int:
+		return v, true
+	case int32:
+		return int(v), true
+	case int64:
+		return int(v), true
+	case uint:
+		return int(v), true
+	case uint32:
+		return int(v), true
+	case uint64:
+		return int(v), true
+	default:
+		return 0, false
+	}
+}
+
+// buildArrayTypeTree builds tree for array type expressions.
+func buildArrayTypeTree(arrayType *ast.ArrayType, variables map[string]interface{}, fset *token.FileSet) *EvaluationTree {
+	var text strings.Builder
+	text.WriteString("[")
+
+	if arrayType.Len != nil {
+		lengthTree := buildTreeFromAST(arrayType.Len, variables, fset)
+		text.WriteString(lengthTree.Text)
+	}
+
+	text.WriteString("]")
+
+	if arrayType.Elt != nil {
+		eltTree := buildTreeFromAST(arrayType.Elt, variables, fset)
+		text.WriteString(eltTree.Text)
+	}
+
+	return &EvaluationTree{
+		ID:   getNextNodeID(),
+		Type: "array_type",
+		Text: text.String(),
+	}
+}
+
+// buildCompositeLitTree builds tree for composite literals like "[]int{1, 2, 3}".
+func buildCompositeLitTree(comp *ast.CompositeLit, variables map[string]interface{}, fset *token.FileSet) *EvaluationTree {
+	var children []*EvaluationTree
+	var text strings.Builder
+
+	if comp.Type != nil {
+		typeTree := buildTreeFromAST(comp.Type, variables, fset)
+		children = append(children, typeTree)
+		text.WriteString(typeTree.Text)
+	}
+
+	text.WriteString("{")
+
+	for i, elt := range comp.Elts {
+		if i > 0 {
+			text.WriteString(", ")
+		}
+		eltTree := buildTreeFromAST(elt, variables, fset)
+		children = append(children, eltTree)
+		text.WriteString(eltTree.Text)
+	}
+
+	text.WriteString("}")
+
+	return &EvaluationTree{
+		ID:       getNextNodeID(),
+		Type:     "composite_lit",
+		Children: children,
+		Text:     text.String(),
+	}
+}
+
+// buildFuncLitTree builds tree for function literals.
+func buildFuncLitTree(funcLit *ast.FuncLit, variables map[string]interface{}, fset *token.FileSet) *EvaluationTree {
+	return &EvaluationTree{
+		ID:   getNextNodeID(),
+		Type: "func_lit",
+		Text: "func(...) {...}",
+	}
+}
+
+// buildTypeAssertTree builds tree for type assertions like "x.(int)".
+func buildTypeAssertTree(typeAssert *ast.TypeAssertExpr, variables map[string]interface{}, fset *token.FileSet) *EvaluationTree {
+	baseTree := buildTreeFromAST(typeAssert.X, variables, fset)
+
+	var typeText string
+	if typeAssert.Type != nil {
+		typeTree := buildTreeFromAST(typeAssert.Type, variables, fset)
+		typeText = typeTree.Text
+	} else {
+		typeText = "type" // for x.(type) in type switches
+	}
+
+	text := fmt.Sprintf("%s.(%s)", baseTree.Text, typeText)
+
+	return &EvaluationTree{
+		ID:   getNextNodeID(),
+		Type: "type_assert",
+		Left: baseTree,
+		Text: text,
+	}
+}
+
+// buildStarExprTree builds tree for pointer dereference expressions like "*ptr".
+func buildStarExprTree(star *ast.StarExpr, variables map[string]interface{}, fset *token.FileSet) *EvaluationTree {
+	baseTree := buildTreeFromAST(star.X, variables, fset)
+
+	var value interface{}
+	var result bool
+
+	if baseTree.Value != nil {
+		val := reflect.ValueOf(baseTree.Value)
+		if val.Kind() == reflect.Ptr && !val.IsNil() {
+			value = val.Elem().Interface()
+			result = isTruthy(value)
+		}
+	}
+
+	return &EvaluationTree{
+		ID:     getNextNodeID(),
+		Type:   "dereference",
+		Left:   baseTree,
+		Value:  value,
+		Result: result,
+		Text:   fmt.Sprintf("*%s", baseTree.Text),
+	}
 }
 
 // mergeVariables merges user-provided values with auto-extracted variables.
@@ -574,6 +876,16 @@ func extractVariableValuesFromFrame(expr string, callerFrame uintptr) map[string
 	}
 
 	return variables
+}
+
+// VariableContext holds information about a variable's usage context.
+type VariableContext struct {
+	Name       string
+	Type       string      // "identifier", "field", "index", "slice", "method"
+	Parent     string      // For nested access like "obj.field"
+	Index      interface{} // For array/slice access
+	SliceStart interface{} // For slice expressions
+	SliceEnd   interface{} // For slice expressions
 }
 
 // extractVariableNames recursively extracts variable names from AST.

@@ -29,10 +29,18 @@ For a quick overview of diagassert:
 
 ## Project Status
 
-- ✅ **Phase 1**: Basic expression extraction and display (Current)
-- 🔄 **Phase 2**: Variable value display and evaluation trees (Planned)
-- 🔄 **Phase 3**: Advanced expression support (Planned)
-- 🔄 **Phase 4**: Enhanced machine-readable output for AI tools (Planned)
+- ✅ **Phase 1**: Basic expression extraction and display
+- ✅ **Phase 2**: Expression evaluation and tree building
+- 🔄 **Phase 3**: Advanced expression support (In Progress)
+  - ✅ AST parsing and tree construction
+  - ✅ Expression structure analysis  
+  - ❌ Runtime variable value extraction (placeholder only)
+  - ❌ Struct field value display
+  - ❌ Method call result display
+- ✅ **Phase 4**: Enhanced machine-readable output for AI tools
+- ✅ **Phase 5**: Value capture API (`V()`, `Values{}`)
+- 🔄 **Phase 6**: Output format extensions (Planned)
+- 🔄 **Phase 7**: Performance optimizations (Planned)
 
 ## Contributing
 

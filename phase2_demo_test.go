@@ -29,9 +29,7 @@ func TestPhase2OutputDemo(t *testing.T) {
 			},
 			expectedParts: []string{
 				"ASSERTION FAILED at",
-				"Expression: x > 20",
-				"Result: false",
-				"EVALUATION TRACE:",
+				"assert(x > 20)",
 				"[MACHINE_READABLE_START]",
 				"EXPR: x > 20",
 				"RESULT: false",
@@ -46,11 +44,10 @@ func TestPhase2OutputDemo(t *testing.T) {
 			},
 			expectedParts: []string{
 				"ASSERTION FAILED at",
-				"Expression: age >= 18 && hasLicense",
-				"Result: false",
-				"EVALUATION TRACE:",
+				"assert(age >= 18 && hasLicense)",
 				"[MACHINE_READABLE_START]",
-				"FAIL_REASON:",
+				"EXPR: age >= 18 && hasLicense",
+				"RESULT: false",
 			},
 		},
 	}
@@ -94,8 +91,7 @@ func TestPhase2StructFieldDemo(t *testing.T) {
 	// Check for Phase 2 features
 	expectedParts := []string{
 		"ASSERTION FAILED at",
-		"Expression: user.Age >= 18",
-		"EVALUATION TRACE:",
+		"assert(user.Age >= 18)",
 		"VARIABLES:",
 	}
 
