@@ -340,50 +340,72 @@ func (f *VisualFormatter) colorizePerValuePipeLine(line string, layerAssignment 
 
 // buildColoredValueLine builds a value line with appropriate colors for each value
 func (f *VisualFormatter) buildColoredValueLine(layer []VisualNode, maxWidth int) string {
-	// Build a line of spaces
-	line := strings.Repeat(" ", maxWidth)
-	lineRunes := []rune(line)
+	if !f.colorConfig.ColorsEnabled {
+		// If colors are disabled, use the simple approach
+		line := strings.Repeat(" ", maxWidth)
+		lineRunes := []rune(line)
 
-	// Track which positions have been colored to avoid overlaps
-	coloredPositions := make(map[int]bool)
+		// Track which positions have been colored to avoid overlaps
+		coloredPositions := make(map[int]bool)
 
-	// Place each value with its color
-	for _, node := range layer {
-		value := node.Position.Value
-		startPos := node.PipePosition
+		// Place each value
+		for _, node := range layer {
+			value := node.Position.Value
+			startPos := node.PipePosition
 
-		// Place the raw value in the line first
-		if startPos < len(lineRunes) {
-			// Clear the space for this value
-			valueRunes := []rune(value)
-			for i, r := range valueRunes {
-				if startPos+i < len(lineRunes) && !coloredPositions[startPos+i] {
-					lineRunes[startPos+i] = r
-					coloredPositions[startPos+i] = true
+			// Place the raw value in the line
+			if startPos < len(lineRunes) {
+				valueRunes := []rune(value)
+				for i, r := range valueRunes {
+					if startPos+i < len(lineRunes) && !coloredPositions[startPos+i] {
+						lineRunes[startPos+i] = r
+						coloredPositions[startPos+i] = true
+					}
 				}
 			}
 		}
+
+		return string(lineRunes)
 	}
 
-	// Convert back to string and apply colors if enabled
-	plainLine := string(lineRunes)
+	// When colors are enabled, build the line more carefully
+	// to avoid ANSI escape sequence corruption
+	var result strings.Builder
+	result.Grow(maxWidth * 2) // Pre-allocate space for colors
 
-	if !f.colorConfig.ColorsEnabled {
-		return plainLine
-	}
+	// Sort nodes by position to place them left-to-right
+	sortedNodes := make([]VisualNode, len(layer))
+	copy(sortedNodes, layer)
+	sort.Slice(sortedNodes, func(i, j int) bool {
+		return sortedNodes[i].PipePosition < sortedNodes[j].PipePosition
+	})
 
-	// Apply colors to the line by replacing values with colored versions
-	result := plainLine
-	for _, node := range layer {
+	currentPos := 0
+	for _, node := range sortedNodes {
 		value := node.Position.Value
+		startPos := node.PipePosition
+
+		// Add spaces before this value
+		if startPos > currentPos {
+			spacesNeeded := startPos - currentPos
+			result.WriteString(strings.Repeat(" ", spacesNeeded))
+		}
+
+		// Add the colored value
 		isOperator := f.isOperatorValue(node.Position.Expression, value)
 		coloredValue := f.colorizeValue(value, isOperator)
+		result.WriteString(coloredValue)
 
-		// Replace the first occurrence of the value with its colored version
-		result = strings.Replace(result, value, coloredValue, 1)
+		// Update current position (visual position, not including ANSI sequences)
+		currentPos = startPos + len([]rune(value))
 	}
 
-	return result
+	// Add trailing spaces if needed
+	if currentPos < maxWidth {
+		result.WriteString(strings.Repeat(" ", maxWidth-currentPos))
+	}
+
+	return result.String()
 }
 
 // isOperatorValue determines if a value represents an operator result

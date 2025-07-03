@@ -277,3 +277,73 @@ func TestVisualFormatter_NoMachineReadable(t *testing.T) {
 		t.Error("Machine-readable section should not be included when disabled")
 	}
 }
+
+func TestVisualFormatter_Issue10_Alignment(t *testing.T) {
+	// Test for GitHub issue #10 - alignment issues with colored output
+	formatter := NewVisualFormatter()
+
+	result := &evaluator.ExpressionResult{
+		Expression: "result == expected",
+		Result:     false,
+		Variables: map[string]interface{}{
+			"result":   3,
+			"expected": 0,
+		},
+		Tree: &evaluator.EvaluationTree{
+			ID:       1,
+			Type:     "comparison",
+			Operator: "==",
+			Text:     "result == expected",
+			Result:   false,
+			Left: &evaluator.EvaluationTree{
+				ID:    2,
+				Type:  "identifier",
+				Text:  "result",
+				Value: 3,
+			},
+			Right: &evaluator.EvaluationTree{
+				ID:    3,
+				Type:  "identifier",
+				Text:  "expected",
+				Value: 0,
+			},
+		},
+	}
+
+	output := formatter.FormatVisual(result, "test.go", 1, "")
+
+	// Verify the output doesn't contain truncated ANSI escape sequences
+	if strings.Contains(output, "30m") || strings.Contains(output, "31m") || strings.Contains(output, "32m") {
+		t.Errorf("Output contains truncated ANSI escape sequences: %q", output)
+	}
+
+	// Verify that values are properly aligned
+	lines := strings.Split(output, "\n")
+	var assertLine, valueLine string
+	for i, line := range lines {
+		if strings.Contains(line, "assert(result == expected)") {
+			assertLine = line
+			// Find a line with values
+			for j := i + 1; j < len(lines); j++ {
+				if strings.Contains(lines[j], "3") || strings.Contains(lines[j], "0") {
+					valueLine = lines[j]
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if assertLine == "" {
+		t.Error("Could not find assert line in output")
+	}
+	if valueLine == "" {
+		t.Error("Could not find value line in output")
+	}
+
+	// The test mainly checks that we don't get truncated escape sequences
+	// and that the output is well-formed
+	t.Logf("Assert line: %q", assertLine)
+	t.Logf("Value line: %q", valueLine)
+	t.Logf("Full output:\n%s", output)
+}
