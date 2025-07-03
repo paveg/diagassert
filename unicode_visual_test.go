@@ -105,9 +105,9 @@ func TestUnicodeVisualFormatter(t *testing.T) {
 			// Note: We can't easily test dynamic Unicode expressions with actual parsing
 			// This test focuses on the visual formatter's Unicode support
 			// The actual expressions would need to be evaluated at runtime
-			
+
 			// For now, test the value capture and formatting with Unicode values
-			diagassert.Assert(mock, false, 
+			diagassert.Assert(mock, false,
 				diagassert.Values(tt.values))
 
 			output := mock.getOutput()
@@ -126,7 +126,7 @@ func TestUnicodeVisualFormatter(t *testing.T) {
 			if !strings.Contains(output, "assert(") {
 				t.Errorf("Should contain power-assert format, got: %s", output)
 			}
-			
+
 			// Check that captured values section exists
 			if !strings.Contains(output, "CAPTURED VALUES:") {
 				t.Errorf("Should contain captured values section, got: %s", output)
@@ -141,17 +141,17 @@ func TestVisualWidth(t *testing.T) {
 		input    string
 		expected int
 	}{
-		{"hello", 5},                    // ASCII
-		{"こんにちは", 10},                  // 5 Hiragana characters × 2
-		{"Hello世界", 9},                  // 5 ASCII + 2 Han × 2  
-		{"🌍", 1},                       // Emoji (treated as 1 width)
-		{"A→B", 3},                     // 1 + 1 + 1 (arrow is not detected as full-width)
-		{"名前", 4},                      // 2 Han characters × 2
-		{"이름", 4},                      // 2 Hangul characters × 2
-		{"价格", 4},                      // 2 Han characters × 2
-		{"Ａ＞Ｂ", 6},                     // 3 full-width characters × 2
-		{"", 0},                        // Empty string
-		{"ひらがな123カタカナ", 19},           // Mixed: 4×2 + 3 + 4×2 = 8 + 3 + 8 = 19
+		{"hello", 5},        // ASCII
+		{"こんにちは", 10},       // 5 Hiragana characters × 2
+		{"Hello世界", 9},      // 5 ASCII + 2 Han × 2
+		{"🌍", 1},            // Emoji (treated as 1 width)
+		{"A→B", 3},          // 1 + 1 + 1 (arrow is not detected as full-width)
+		{"名前", 4},           // 2 Han characters × 2
+		{"이름", 4},           // 2 Hangul characters × 2
+		{"价格", 4},           // 2 Han characters × 2
+		{"Ａ＞Ｂ", 6},          // 3 full-width characters × 2
+		{"", 0},             // Empty string
+		{"ひらがな123カタカナ", 19}, // Mixed: 4×2 + 3 + 4×2 = 8 + 3 + 8 = 19
 	}
 
 	for _, tt := range tests {
@@ -170,7 +170,7 @@ func TestCharacterPositioning(t *testing.T) {
 		name  string
 		input string
 		tests []struct {
-			bytePos    int
+			bytePos        int
 			expectedVisual int
 		}
 	}{
@@ -181,9 +181,9 @@ func TestCharacterPositioning(t *testing.T) {
 				bytePos        int
 				expectedVisual int
 			}{
-				{0, 0},  // 'h'
-				{1, 1},  // 'e'
-				{4, 4},  // 'o'
+				{0, 0}, // 'h'
+				{1, 1}, // 'e'
+				{4, 4}, // 'o'
 			},
 		},
 		{
@@ -193,9 +193,9 @@ func TestCharacterPositioning(t *testing.T) {
 				bytePos        int
 				expectedVisual int
 			}{
-				{0, 0},  // 'こ' starts at visual 0
-				{3, 2},  // 'ん' starts at visual 2
-				{6, 4},  // 'に' starts at visual 4
+				{0, 0}, // 'こ' starts at visual 0
+				{3, 2}, // 'ん' starts at visual 2
+				{6, 4}, // 'に' starts at visual 4
 			},
 		},
 		{
@@ -205,9 +205,9 @@ func TestCharacterPositioning(t *testing.T) {
 				bytePos        int
 				expectedVisual int
 			}{
-				{0, 0},  // 'H'
-				{5, 5},  // '世' should start at visual position 5
-				{8, 7},  // '界' should start at visual position 7
+				{0, 0}, // 'H'
+				{5, 5}, // '世' should start at visual position 5
+				{8, 7}, // '界' should start at visual position 7
 			},
 		},
 	}
@@ -217,7 +217,7 @@ func TestCharacterPositioning(t *testing.T) {
 			for _, test := range tt.tests {
 				actual := calculateVisualPositionFromByte(tt.input, test.bytePos)
 				if actual != test.expectedVisual {
-					t.Errorf("For %q at byte %d: got visual %d, want %d", 
+					t.Errorf("For %q at byte %d: got visual %d, want %d",
 						tt.input, test.bytePos, actual, test.expectedVisual)
 				}
 			}
@@ -240,7 +240,7 @@ func TestComplexUnicodeExpressions(t *testing.T) {
 					名前 string
 					年齢 int
 				}{名前: "田中", 年齢: 16}
-				
+
 				diagassert.Assert(mock, user.年齢 >= 18,
 					diagassert.V("user.年齢", user.年齢))
 			},
@@ -333,10 +333,10 @@ func calculateVisualWidth(s string) int {
 func isWideRune(r rune) bool {
 	// Simplified implementation for testing
 	return (r >= 0x1100 && r <= 0x115F) || // Hangul Jamo
-		(r >= 0x2E80 && r <= 0x9FFF) ||    // CJK
-		(r >= 0xAC00 && r <= 0xD7AF) ||    // Hangul Syllables
-		(r >= 0xF900 && r <= 0xFAFF) ||    // CJK Compatibility
-		(r >= 0xFF00 && r <= 0xFFEF)       // Fullwidth forms
+		(r >= 0x2E80 && r <= 0x9FFF) || // CJK
+		(r >= 0xAC00 && r <= 0xD7AF) || // Hangul Syllables
+		(r >= 0xF900 && r <= 0xFAFF) || // CJK Compatibility
+		(r >= 0xFF00 && r <= 0xFFEF) // Fullwidth forms
 }
 
 // calculateVisualPositionFromByte calculates visual position from byte position (test helper)
@@ -344,21 +344,21 @@ func calculateVisualPositionFromByte(s string, bytePos int) int {
 	if bytePos <= 0 {
 		return 0
 	}
-	
+
 	visualPos := 0
 	currentByte := 0
-	
+
 	for _, r := range s {
 		if currentByte >= bytePos {
 			break
 		}
-		
+
 		if isWideRune(r) {
 			visualPos += 2
 		} else {
 			visualPos++
 		}
-		
+
 		// Calculate byte length of this rune
 		if r < 0x80 {
 			currentByte += 1
@@ -370,6 +370,6 @@ func calculateVisualPositionFromByte(s string, bytePos int) int {
 			currentByte += 4
 		}
 	}
-	
+
 	return visualPos
 }

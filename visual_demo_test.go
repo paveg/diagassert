@@ -11,7 +11,7 @@ import (
 func TestVisualDemo_SimpleComparison(t *testing.T) {
 	// Skip demo test to avoid test failures - enable to see visual output
 	t.Skip("Demo test - enable to see power-assert visual output")
-	
+
 	x := 10
 
 	// This will show:
@@ -26,7 +26,7 @@ func TestVisualDemo_SimpleComparison(t *testing.T) {
 func TestVisualDemo_LogicalAND(t *testing.T) {
 	// Skip demo test to avoid test failures - enable to see visual output
 	t.Skip("Demo test - enable to see power-assert visual output")
-	
+
 	age := 16
 	hasLicense := false
 
@@ -43,7 +43,7 @@ func TestVisualDemo_LogicalAND(t *testing.T) {
 func TestVisualDemo_ArrayAccess(t *testing.T) {
 	// Skip demo test to avoid test failures - enable to see visual output
 	t.Skip("Demo test - enable to see power-assert visual output")
-	
+
 	scores := []int{65, 70, 75}
 
 	// This will show:
