@@ -878,39 +878,6 @@ func extractVariableValuesFromFrame(expr string, callerFrame uintptr) map[string
 	return variables
 }
 
-// extractVariableValuesEnhanced performs enhanced variable value extraction with better type handling.
-func extractVariableValuesEnhanced(expr string, callerFrame uintptr) map[string]interface{} {
-	variables := make(map[string]interface{})
-
-	// Parse expression to find variable names and their contexts
-	node, err := parser.ParseExpr(expr)
-	if err != nil {
-		return variables
-	}
-
-	// Extract variable contexts (not just names)
-	varContexts := extractVariableContexts(node)
-
-	// Get function info
-	fn := runtime.FuncForPC(callerFrame)
-	if fn == nil {
-		return variables
-	}
-
-	// Enhanced extraction considering variable contexts
-	for _, ctx := range varContexts {
-		// Try to extract based on context (field access, index access, etc.)
-		if value := extractValueFromContext(ctx, callerFrame); value != nil {
-			variables[ctx.Name] = value
-		} else {
-			// Fallback to placeholder with type information
-			variables[ctx.Name] = fmt.Sprintf("<%s:%s>", ctx.Name, ctx.Type)
-		}
-	}
-
-	return variables
-}
-
 // VariableContext holds information about a variable's usage context.
 type VariableContext struct {
 	Name       string
@@ -919,88 +886,6 @@ type VariableContext struct {
 	Index      interface{} // For array/slice access
 	SliceStart interface{} // For slice expressions
 	SliceEnd   interface{} // For slice expressions
-}
-
-// extractVariableContexts extracts variable contexts from AST.
-func extractVariableContexts(node ast.Expr) []VariableContext {
-	var contexts []VariableContext
-
-	ast.Inspect(node, func(n ast.Node) bool {
-		switch expr := n.(type) {
-		case *ast.Ident:
-			// Skip built-in identifiers
-			if expr.Name != "true" && expr.Name != "false" && expr.Name != "nil" {
-				contexts = append(contexts, VariableContext{
-					Name: expr.Name,
-					Type: "identifier",
-				})
-			}
-		case *ast.SelectorExpr:
-			if ident, ok := expr.X.(*ast.Ident); ok {
-				contexts = append(contexts, VariableContext{
-					Name:   fmt.Sprintf("%s.%s", ident.Name, expr.Sel.Name),
-					Type:   "field",
-					Parent: ident.Name,
-				})
-			}
-		case *ast.IndexExpr:
-			if ident, ok := expr.X.(*ast.Ident); ok {
-				contexts = append(contexts, VariableContext{
-					Name:   fmt.Sprintf("%s[%s]", ident.Name, extractExprText(expr.Index)),
-					Type:   "index",
-					Parent: ident.Name,
-					Index:  extractExprValue(expr.Index),
-				})
-			}
-		case *ast.SliceExpr:
-			if ident, ok := expr.X.(*ast.Ident); ok {
-				contexts = append(contexts, VariableContext{
-					Name:       fmt.Sprintf("%s[%s:%s]", ident.Name, extractExprText(expr.Low), extractExprText(expr.High)),
-					Type:       "slice",
-					Parent:     ident.Name,
-					SliceStart: extractExprValue(expr.Low),
-					SliceEnd:   extractExprValue(expr.High),
-				})
-			}
-		}
-		return true
-	})
-
-	return contexts
-}
-
-// extractValueFromContext attempts to extract actual value based on variable context.
-func extractValueFromContext(ctx VariableContext, callerFrame uintptr) interface{} {
-	// This is a placeholder for enhanced runtime value extraction
-	// Real implementation would require advanced stack frame inspection
-	// For now, return nil to indicate we couldn't extract the value
-	return nil
-}
-
-// extractExprText extracts text representation of an expression.
-func extractExprText(expr ast.Expr) string {
-	if expr == nil {
-		return ""
-	}
-	switch e := expr.(type) {
-	case *ast.Ident:
-		return e.Name
-	case *ast.BasicLit:
-		return e.Value
-	default:
-		return "?"
-	}
-}
-
-// extractExprValue extracts the value of an expression if it's a literal.
-func extractExprValue(expr ast.Expr) interface{} {
-	if expr == nil {
-		return nil
-	}
-	if lit, ok := expr.(*ast.BasicLit); ok {
-		return parseLiteral(lit)
-	}
-	return nil
 }
 
 // extractVariableNames recursively extracts variable names from AST.

@@ -343,7 +343,7 @@ func (f *VisualFormatter) collectPositionsWithASTDepth(tree *evaluator.Evaluatio
 
 	// Process children - keep same depth for immediate children, increase for nested expressions
 	// For binary expressions like "x > 20", we want x and > on the same level
-	nextDepth := depth
+	var nextDepth int
 	if tree.Type == "comparison" || tree.Type == "logical" {
 		// For operators, their operands should be at the same depth as the operator
 		nextDepth = depth
@@ -452,7 +452,7 @@ func (f *VisualFormatter) collectPositionsDepth(tree *evaluator.EvaluationTree, 
 
 	// Process children - keep same depth for immediate children, increase for nested expressions
 	// For binary expressions like "x > 20", we want x and > on the same level
-	nextDepth := depth
+	var nextDepth int
 	if tree.Type == "comparison" || tree.Type == "logical" {
 		// For operators, their operands should be at the same depth as the operator
 		nextDepth = depth
@@ -500,11 +500,6 @@ func (f *VisualFormatter) findOperatorInNode(astNode ast.Node, operator string, 
 		return leftEnd
 	}
 	return 0
-}
-
-// processChildrenWithAST processes child nodes recursively.
-func (f *VisualFormatter) processChildrenWithAST(tree *evaluator.EvaluationTree, astNode ast.Expr, expr string, mapper *PositionMapper, positions *[]ValuePosition, seen map[string]bool) {
-	f.processChildrenWithASTDepth(tree, astNode, expr, mapper, positions, seen, 0)
 }
 
 // processChildrenWithASTDepth processes child nodes recursively with depth tracking.
@@ -860,203 +855,6 @@ func (f *VisualFormatter) groupPositionsToAvoidOverlap(positions []ValuePosition
 	}
 
 	return lines
-}
-
-// groupAllPositionsOptimally groups all positions to minimize the number of lines.
-func (f *VisualFormatter) groupAllPositionsOptimally(positions []ValuePosition) [][]ValuePosition {
-	if len(positions) == 0 {
-		return nil
-	}
-
-	// For simple cases with 2 positions, try to put them on the same line if they don't overlap
-	if len(positions) == 2 {
-		if !valuesOverlap(positions[0], positions[1]) {
-			return [][]ValuePosition{positions}
-		}
-	}
-
-	var lines [][]ValuePosition
-
-	for _, pos := range positions {
-		placed := false
-
-		// Try to place in existing line
-		for i, line := range lines {
-			canPlace := true
-			for _, existing := range line {
-				if valuesOverlap(pos, existing) {
-					canPlace = false
-					break
-				}
-			}
-
-			if canPlace {
-				lines[i] = append(lines[i], pos)
-				placed = true
-				break
-			}
-		}
-
-		// Create new line if needed
-		if !placed {
-			lines = append(lines, []ValuePosition{pos})
-		}
-	}
-
-	return lines
-}
-
-// calculateValuePosition calculates the optimal position for a value considering overlaps.
-func (f *VisualFormatter) calculateValuePosition(pos ValuePosition, linePositions []ValuePosition) int {
-	basePos := pos.VisualPos
-
-	// Check for conflicts with other values in the same line
-	for _, other := range linePositions {
-		if other.VisualPos == pos.VisualPos {
-			continue // Skip self
-		}
-
-		// If this value would overlap with another, adjust position
-		if other.VisualPos < pos.VisualPos &&
-			other.VisualPos+visualWidth(other.Value)+1 > basePos {
-			basePos = other.VisualPos + visualWidth(other.Value) + 1
-		}
-	}
-
-	return basePos
-}
-
-// buildVisualLines builds the visual representation lines (fallback method).
-func (f *VisualFormatter) buildVisualLines(expr string, positions []ValuePosition) []string {
-	if len(positions) == 0 {
-		return []string{"false"}
-	}
-
-	// Use Unicode-aware line building (fallback to byte positioning)
-	return f.buildUnicodeAwareLinesFallback(expr, positions)
-}
-
-// buildUnicodeAwareLinesFallback builds lines using visual positioning (fallback for when AST parsing fails).
-func (f *VisualFormatter) buildUnicodeAwareLinesFallback(expr string, positions []ValuePosition) []string {
-	// Group positions to avoid overlap using visual positioning
-	var lines [][]ValuePosition
-
-	for _, pos := range positions {
-		placed := false
-
-		// Try to place in existing line
-		for i, line := range lines {
-			canPlace := true
-			for _, existing := range line {
-				// Check overlap using visual positions if available, otherwise use byte positions
-				if pos.VisualPos > 0 && existing.VisualPos > 0 {
-					if valuesOverlap(pos, existing) {
-						canPlace = false
-						break
-					}
-				} else {
-					// Fallback to byte-based overlap detection
-					if pos.StartPos < existing.StartPos+len(existing.Value) &&
-						pos.StartPos+len(pos.Value) > existing.StartPos {
-						canPlace = false
-						break
-					}
-				}
-			}
-
-			if canPlace {
-				lines[i] = append(lines[i], pos)
-				placed = true
-				break
-			}
-		}
-
-		// Create new line if needed
-		if !placed {
-			lines = append(lines, []ValuePosition{pos})
-		}
-	}
-
-	// Build output lines
-	var result []string
-	exprVisualWidth := visualWidth(expr)
-
-	for _, linePositions := range lines {
-		// Build pipe line and value line using visual positioning when available
-		pipeLine := make([]rune, exprVisualWidth+1)
-		valueLine := make([]rune, exprVisualWidth+100)
-
-		// Initialize with spaces
-		for i := range pipeLine {
-			pipeLine[i] = ' '
-		}
-		for i := range valueLine {
-			valueLine[i] = ' '
-		}
-
-		// Place pipes and values for this line
-		for _, pos := range linePositions {
-			visualPos := pos.VisualPos
-			if visualPos == 0 {
-				// Fallback: convert byte position to visual position
-				visualPos = f.byteToVisualPosFallback(pos.StartPos, expr)
-			}
-
-			// Place pipe at visual position
-			if visualPos < len(pipeLine) {
-				pipeLine[visualPos] = '|'
-			}
-
-			// Place value
-			valueRunes := []rune(pos.Value)
-			for i, r := range valueRunes {
-				if visualPos+i < len(valueLine) {
-					valueLine[visualPos+i] = r
-				}
-			}
-		}
-
-		// Add pipe line
-		pipeStr := strings.TrimRight(string(pipeLine), " ")
-		if pipeStr != "" {
-			result = append(result, pipeStr)
-		}
-
-		// Add value line
-		valueStr := strings.TrimRight(string(valueLine), " ")
-		if valueStr != "" {
-			result = append(result, valueStr)
-		}
-	}
-
-	return result
-}
-
-// byteToVisualPosFallback converts byte position to visual position without charPositions array.
-func (f *VisualFormatter) byteToVisualPosFallback(bytePos int, expr string) int {
-	if bytePos <= 0 {
-		return 0
-	}
-
-	// Count visual width up to the byte position
-	visualPos := 0
-	currentByte := 0
-
-	for _, r := range expr {
-		if currentByte >= bytePos {
-			break
-		}
-
-		if isWideRune(r) {
-			visualPos += 2
-		} else {
-			visualPos++
-		}
-
-		currentByte += utf8.RuneLen(r)
-	}
-
-	return visualPos
 }
 
 // formatValueCompact formats a value in a compact way.
