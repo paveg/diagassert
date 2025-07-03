@@ -1,4 +1,26 @@
 // Package formatter provides visual formatting for power-assert style output.
+//
+// Color Support:
+// The visual formatter now includes comprehensive color support using github.com/fatih/color.
+// Colors are automatically detected based on terminal capabilities and environment variables:
+//
+// Environment Variables:
+//   - NO_COLOR: Set to any value to disable colors (respects https://no-color.org/)
+//   - FORCE_COLOR: Set to any value to force enable colors
+//   - DIAGASSERT_PIPE_COLORS: Set to "false" to disable per-value pipe colors (default: enabled)
+//
+// Color Scheme:
+//   - Header ("ASSERTION FAILED"): Bold Red
+//   - Pipes (|): Gray/Dim (default) or per-value colors when enabled
+//   - Variable values: Blue
+//   - Boolean true: Green
+//   - Boolean false: Red
+//   - Operators (>, ==, &&, etc.): Yellow
+//
+// Per-Value Pipe Colors:
+// When DIAGASSERT_PIPE_COLORS is enabled (default), each value in deep expression hierarchies
+// gets its own unique pipe color to improve readability. Colors are assigned deterministically
+// based on the expression text, ensuring consistent coloring across runs.
 package formatter
 
 import (
@@ -13,12 +35,32 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/fatih/color"
 	"github.com/paveg/diagassert/internal/evaluator"
 )
+
+// ColorConfig holds color configuration for different output elements
+type ColorConfig struct {
+	// Element colors
+	HeaderColor   *color.Color // "ASSERTION FAILED" header
+	PipeColor     *color.Color // Visual pipes (|) - default color
+	VariableColor *color.Color // Variable values (blue)
+	TrueColor     *color.Color // Boolean true values (green)
+	FalseColor    *color.Color // Boolean false values (red)
+	OperatorColor *color.Color // Operators like >, <, == (yellow)
+
+	// Per-value pipe colors
+	PipeColorPalette  []*color.Color // Color palette for per-value pipes
+	PipeColorsEnabled bool           // Enable per-value pipe colors
+
+	// Color detection
+	ColorsEnabled bool
+}
 
 // VisualFormatter formats evaluation results in power-assert style.
 type VisualFormatter struct {
 	includeMachineReadable bool
+	colorConfig            *ColorConfig
 }
 
 // NewVisualFormatter creates a new visual formatter.
@@ -28,7 +70,88 @@ func NewVisualFormatter() *VisualFormatter {
 
 	return &VisualFormatter{
 		includeMachineReadable: includeMachine,
+		colorConfig:            setupColorConfig(),
 	}
+}
+
+// setupColorConfig creates and configures the color system
+func setupColorConfig() *ColorConfig {
+	// Detect if colors should be enabled
+	colorsEnabled := shouldEnableColors()
+
+	// Handle FORCE_COLOR override by temporarily clearing NO_COLOR
+	var originalNoColor string
+	var hadNoColor bool
+	if colorsEnabled && os.Getenv("FORCE_COLOR") != "" && os.Getenv("NO_COLOR") != "" {
+		originalNoColor = os.Getenv("NO_COLOR")
+		hadNoColor = true
+		os.Unsetenv("NO_COLOR")
+	}
+
+	// Set the global color.NoColor flag based on our detection
+	color.NoColor = !colorsEnabled
+
+	// Check if per-value pipe colors should be enabled
+	pipeColorsEnabled := os.Getenv("DIAGASSERT_PIPE_COLORS") != "false"
+
+	config := &ColorConfig{
+		ColorsEnabled: colorsEnabled,
+		HeaderColor:   color.New(color.FgRed, color.Bold), // Bold red for "ASSERTION FAILED"
+		PipeColor:     color.New(color.FgHiBlack),         // Gray/dim for pipes
+		VariableColor: color.New(color.FgBlue),            // Blue for variables
+		TrueColor:     color.New(color.FgGreen),           // Green for true
+		FalseColor:    color.New(color.FgRed),             // Red for false
+		OperatorColor: color.New(color.FgYellow),          // Yellow for operators
+
+		// Per-value pipe colors
+		PipeColorPalette:  createPipeColorPalette(),
+		PipeColorsEnabled: pipeColorsEnabled,
+	}
+
+	// Restore NO_COLOR if it was set
+	if hadNoColor {
+		os.Setenv("NO_COLOR", originalNoColor)
+	}
+
+	return config
+}
+
+// createPipeColorPalette creates a palette of colors for per-value pipes
+// Colors are chosen to be distinguishable, accessible, and different from existing colors
+func createPipeColorPalette() []*color.Color {
+	return []*color.Color{
+		color.New(color.FgCyan),      // Cyan - distinguishable from blue
+		color.New(color.FgMagenta),   // Magenta - distinct color
+		color.New(color.FgHiGreen),   // Bright green - different from regular green
+		color.New(color.FgHiYellow),  // Bright yellow - different from regular yellow
+		color.New(color.FgHiBlue),    // Bright blue - different from regular blue
+		color.New(color.FgHiMagenta), // Bright magenta - vibrant
+		color.New(color.FgHiCyan),    // Bright cyan - vivid
+		color.New(color.FgWhite),     // White - good contrast
+	}
+}
+
+// shouldEnableColors detects if colors should be enabled based on environment and terminal capabilities
+func shouldEnableColors() bool {
+	// Check FORCE_COLOR environment variable first (it should override NO_COLOR)
+	if os.Getenv("FORCE_COLOR") != "" {
+		return true
+	}
+
+	// Respect NO_COLOR environment variable (https://no-color.org/)
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+
+	// Default to enabling colors in most cases
+	// The fatih/color package will handle terminal detection automatically
+	// We enable colors by default and let the color package decide whether to apply them
+	return true
+}
+
+// GetColorConfig returns the current color configuration (for testing purposes)
+func (f *VisualFormatter) GetColorConfig() *ColorConfig {
+	return f.colorConfig
 }
 
 // FormatVisual formats the evaluation result in power-assert style.
@@ -40,8 +163,9 @@ func (f *VisualFormatter) FormatVisual(result *evaluator.ExpressionResult, file 
 func (f *VisualFormatter) FormatVisualWithContext(result *evaluator.ExpressionResult, file string, line int, customMessage string, ctx *AssertionContext) string {
 	var b strings.Builder
 
-	// Header
-	b.WriteString(fmt.Sprintf("ASSERTION FAILED at %s:%d\n\n", file, line))
+	// Header with color
+	header := fmt.Sprintf("ASSERTION FAILED at %s:%d", file, line)
+	b.WriteString(f.colorizeHeader(header) + "\n\n")
 
 	// Power-assert style visual representation
 	b.WriteString(f.formatPowerAssertStyle(result))
@@ -83,6 +207,284 @@ func (f *VisualFormatter) FormatVisualWithContext(result *evaluator.ExpressionRe
 	}
 
 	return b.String()
+}
+
+// Color helper functions
+
+// colorizeHeader applies color to the header text
+func (f *VisualFormatter) colorizeHeader(text string) string {
+	if !f.colorConfig.ColorsEnabled {
+		return text
+	}
+	// If FORCE_COLOR is set, manually apply colors even if NO_COLOR is set
+	if os.Getenv("FORCE_COLOR") != "" && os.Getenv("NO_COLOR") != "" {
+		return "\033[31;1m" + text + "\033[0;22m"
+	}
+	return f.colorConfig.HeaderColor.Sprint(text)
+}
+
+// colorizePipe applies color to pipe characters
+func (f *VisualFormatter) colorizePipe(text string) string {
+	if !f.colorConfig.ColorsEnabled {
+		return text
+	}
+	// If FORCE_COLOR is set, manually apply colors even if NO_COLOR is set
+	if os.Getenv("FORCE_COLOR") != "" && os.Getenv("NO_COLOR") != "" {
+		return "\033[90m" + text + "\033[0m"
+	}
+	return f.colorConfig.PipeColor.Sprint(text)
+}
+
+// colorizeValue applies appropriate color to a value based on its type
+func (f *VisualFormatter) colorizeValue(value string, isOperator bool) string {
+	if !f.colorConfig.ColorsEnabled {
+		return value
+	}
+
+	// If FORCE_COLOR is set, manually apply colors even if NO_COLOR is set
+	if os.Getenv("FORCE_COLOR") != "" && os.Getenv("NO_COLOR") != "" {
+		if isOperator {
+			return "\033[33m" + value + "\033[0m" // Yellow for operators
+		}
+		switch value {
+		case "true":
+			return "\033[32m" + value + "\033[0m" // Green for true
+		case "false":
+			return "\033[31m" + value + "\033[0m" // Red for false
+		default:
+			return "\033[34m" + value + "\033[0m" // Blue for variables
+		}
+	}
+
+	// Special handling for operators
+	if isOperator {
+		return f.colorConfig.OperatorColor.Sprint(value)
+	}
+
+	// Color based on value content
+	switch value {
+	case "true":
+		return f.colorConfig.TrueColor.Sprint(value)
+	case "false":
+		return f.colorConfig.FalseColor.Sprint(value)
+	default:
+		return f.colorConfig.VariableColor.Sprint(value)
+	}
+}
+
+// colorizePipeLine applies color to pipe characters in a line
+func (f *VisualFormatter) colorizePipeLine(line string) string {
+	if !f.colorConfig.ColorsEnabled {
+		return line
+	}
+
+	// If FORCE_COLOR is set, manually apply colors even if NO_COLOR is set
+	if os.Getenv("FORCE_COLOR") != "" && os.Getenv("NO_COLOR") != "" {
+		return strings.ReplaceAll(line, "|", "\033[90m|\033[0m")
+	}
+
+	// Replace pipe characters with colored ones
+	return strings.ReplaceAll(line, "|", f.colorConfig.PipeColor.Sprint("|"))
+}
+
+// colorizePerValuePipeLine applies per-value colors to pipe characters in a line
+// layerAssignment contains the layer information needed to determine which values correspond to which pipes
+// layerIdx is the current layer being processed
+func (f *VisualFormatter) colorizePerValuePipeLine(line string, layerAssignment LayerAssignment, layerIdx int) string {
+	if !f.colorConfig.ColorsEnabled || !f.colorConfig.PipeColorsEnabled {
+		return f.colorizePipeLine(line) // Fall back to standard pipe coloring
+	}
+
+	// Build a map of pipe positions to their corresponding ValuePosition
+	pipeToValue := make(map[int]ValuePosition)
+
+	// Collect all value positions that have pipes in this layer or deeper layers
+	for currentLayerIdx := layerIdx; currentLayerIdx < len(layerAssignment.Layers); currentLayerIdx++ {
+		for _, node := range layerAssignment.Layers[currentLayerIdx] {
+			pipeToValue[node.PipePosition] = node.Position
+		}
+	}
+
+	// If no per-value mapping is available, use default coloring
+	if len(pipeToValue) == 0 {
+		return f.colorizePipeLine(line)
+	}
+
+	// Build the result string with per-value pipe colors
+	var result strings.Builder
+	lineRunes := []rune(line)
+
+	for pos, char := range lineRunes {
+		if char == '|' {
+			if valuePos, exists := pipeToValue[pos]; exists {
+				// Get the color for this specific value
+				pipeColor := f.getPipeColorForValue(valuePos)
+
+				// Handle FORCE_COLOR case
+				if os.Getenv("FORCE_COLOR") != "" && os.Getenv("NO_COLOR") != "" {
+					result.WriteString(f.forceColorPipe("|", pipeColor))
+				} else {
+					result.WriteString(pipeColor.Sprint("|"))
+				}
+			} else {
+				// Use default pipe color for pipes without specific value mapping
+				result.WriteString(f.colorConfig.PipeColor.Sprint("|"))
+			}
+		} else {
+			result.WriteRune(char)
+		}
+	}
+
+	return result.String()
+}
+
+// buildColoredValueLine builds a value line with appropriate colors for each value
+func (f *VisualFormatter) buildColoredValueLine(layer []VisualNode, maxWidth int) string {
+	// Build a line of spaces
+	line := strings.Repeat(" ", maxWidth)
+	lineRunes := []rune(line)
+
+	// Track which positions have been colored to avoid overlaps
+	coloredPositions := make(map[int]bool)
+
+	// Place each value with its color
+	for _, node := range layer {
+		value := node.Position.Value
+		startPos := node.PipePosition
+
+		// Place the raw value in the line first
+		if startPos < len(lineRunes) {
+			// Clear the space for this value
+			valueRunes := []rune(value)
+			for i, r := range valueRunes {
+				if startPos+i < len(lineRunes) && !coloredPositions[startPos+i] {
+					lineRunes[startPos+i] = r
+					coloredPositions[startPos+i] = true
+				}
+			}
+		}
+	}
+
+	// Convert back to string and apply colors if enabled
+	plainLine := string(lineRunes)
+
+	if !f.colorConfig.ColorsEnabled {
+		return plainLine
+	}
+
+	// Apply colors to the line by replacing values with colored versions
+	result := plainLine
+	for _, node := range layer {
+		value := node.Position.Value
+		isOperator := f.isOperatorValue(node.Position.Expression, value)
+		coloredValue := f.colorizeValue(value, isOperator)
+
+		// Replace the first occurrence of the value with its colored version
+		result = strings.Replace(result, value, coloredValue, 1)
+	}
+
+	return result
+}
+
+// isOperatorValue determines if a value represents an operator result
+func (f *VisualFormatter) isOperatorValue(expression, value string) bool {
+	// Check if the expression is an operator
+	operators := []string{">", "<", ">=", "<=", "==", "!=", "&&", "||", "!", "+", "-", "*", "/", "%"}
+
+	for _, op := range operators {
+		if expression == op {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Per-value pipe color functions
+
+// assignPipeColor assigns a color to a pipe based on the expression text
+// Uses deterministic hashing to ensure consistent color assignment
+func (f *VisualFormatter) assignPipeColor(expression string) *color.Color {
+	if !f.colorConfig.ColorsEnabled || !f.colorConfig.PipeColorsEnabled {
+		return f.colorConfig.PipeColor // Fall back to default pipe color
+	}
+
+	if len(f.colorConfig.PipeColorPalette) == 0 {
+		return f.colorConfig.PipeColor // Fall back to default pipe color
+	}
+
+	// Use a simple hash to deterministically assign colors
+	hash := f.simpleHash(expression)
+	colorIndex := hash % len(f.colorConfig.PipeColorPalette)
+	return f.colorConfig.PipeColorPalette[colorIndex]
+}
+
+// getPipeColorForValue gets the appropriate pipe color for a specific value position
+func (f *VisualFormatter) getPipeColorForValue(position ValuePosition) *color.Color {
+	return f.assignPipeColor(position.Expression)
+}
+
+// simpleHash provides a simple hash function for consistent color assignment
+func (f *VisualFormatter) simpleHash(s string) int {
+	hash := 0
+	for i, char := range s {
+		hash = hash*31 + int(char) + i
+	}
+	if hash < 0 {
+		hash = -hash
+	}
+	return hash
+}
+
+// colorizePerValuePipe applies per-value pipe colors to a pipe character
+func (f *VisualFormatter) colorizePerValuePipe(text string, position ValuePosition) string {
+	if !f.colorConfig.ColorsEnabled {
+		return text
+	}
+
+	pipeColor := f.getPipeColorForValue(position)
+
+	// If FORCE_COLOR is set, manually apply colors even if NO_COLOR is set
+	if os.Getenv("FORCE_COLOR") != "" && os.Getenv("NO_COLOR") != "" {
+		// Map color.Color to ANSI codes for force color mode
+		return f.forceColorPipe(text, pipeColor)
+	}
+
+	return pipeColor.Sprint(text)
+}
+
+// forceColorPipe applies pipe colors manually when FORCE_COLOR is set
+func (f *VisualFormatter) forceColorPipe(text string, pipeColor *color.Color) string {
+	// Map the fatih/color.Color to ANSI codes for force color mode
+	// This is a simple mapping for the colors we use in our palette
+
+	// Get the color by comparing with known colors from our palette
+	for i, paletteColor := range f.colorConfig.PipeColorPalette {
+		if pipeColor == paletteColor {
+			// Map each palette color to its ANSI code
+			switch i {
+			case 0: // Cyan
+				return "\033[36m" + text + "\033[0m"
+			case 1: // Magenta
+				return "\033[35m" + text + "\033[0m"
+			case 2: // Bright green
+				return "\033[92m" + text + "\033[0m"
+			case 3: // Bright yellow
+				return "\033[93m" + text + "\033[0m"
+			case 4: // Bright blue
+				return "\033[94m" + text + "\033[0m"
+			case 5: // Bright magenta
+				return "\033[95m" + text + "\033[0m"
+			case 6: // Bright cyan
+				return "\033[96m" + text + "\033[0m"
+			case 7: // White
+				return "\033[97m" + text + "\033[0m"
+			}
+		}
+	}
+
+	// Default to cyan if no mapping found
+	return "\033[36m" + text + "\033[0m"
 }
 
 // CharPosition represents position information for a character in the expression.
@@ -174,8 +576,10 @@ func (f *VisualFormatter) formatSimpleAssertStyle(expr string) string {
 	// Add a simple pipe under the end of the expression to show false
 	exprVisualWidth := visualWidth(expr)
 	padding := strings.Repeat(" ", exprVisualWidth)
-	b.WriteString(fmt.Sprintf("         %s|\n", padding))
-	b.WriteString(fmt.Sprintf("         %sfalse\n", padding))
+	pipe := f.colorizePipe("|")
+	falseValue := f.colorizeValue("false", false)
+	b.WriteString(fmt.Sprintf("         %s%s\n", padding, pipe))
+	b.WriteString(fmt.Sprintf("         %s%s\n", padding, falseValue))
 
 	return b.String()
 }
@@ -624,17 +1028,6 @@ func (f *VisualFormatter) byteToVisualPos(bytePos int, charPositions []CharPosit
 	return 0
 }
 
-// valuesOverlap checks if two values would overlap visually.
-func valuesOverlap(a, b ValuePosition) bool {
-	aEnd := a.VisualPos + visualWidth(a.Value)
-	bStart := b.VisualPos
-	bEnd := b.VisualPos + visualWidth(b.Value)
-	aStart := a.VisualPos
-
-	// Check for actual overlap (no spacing requirement for power-assert style)
-	return !(aEnd <= bStart || bEnd <= aStart)
-}
-
 // buildUnicodeAwareLines builds visual lines with Unicode support and the new layer architecture.
 func (f *VisualFormatter) buildUnicodeAwareLines(expr string, positions []ValuePosition, mapper *PositionMapper) []string {
 	if len(positions) == 0 {
@@ -819,31 +1212,16 @@ func (f *VisualFormatter) buildPowerAssertTreeWithLayers(expr string, positions 
 			}
 		}
 
-		// Add pipe line
-		pipeStr := strings.TrimRight(string(pipeRunes), " ")
+		// Add pipe line with color (use per-value coloring if enabled)
+		pipeStr := f.colorizePerValuePipeLine(string(pipeRunes), layerAssignment, layerIdx)
+		pipeStr = strings.TrimRight(pipeStr, " ")
 		if pipeStr != "" {
 			result = append(result, pipeStr)
 		}
 
-		// Build value line
-		valueLine := strings.Repeat(" ", exprWidth+100)
-		valueRunes := []rune(valueLine)
-
-		// Place values at their exact pipe positions (no smart centering)
-		for _, node := range layer {
-			valueText := []rune(node.Position.Value)
-			startPos := node.PipePosition
-
-			// Place value directly under its pipe
-			for i, r := range valueText {
-				if startPos+i < len(valueRunes) {
-					valueRunes[startPos+i] = r
-				}
-			}
-		}
-
-		// Add value line
-		valueStr := strings.TrimRight(string(valueRunes), " ")
+		// Build value line with colors
+		valueStr := f.buildColoredValueLine(layer, exprWidth+100)
+		valueStr = strings.TrimRight(valueStr, " ")
 		if valueStr != "" {
 			result = append(result, valueStr)
 		}
@@ -857,20 +1235,10 @@ func (f *VisualFormatter) buildPowerAssertTreeWithLayers(expr string, positions 
 	return result
 }
 
-
-
-
-
-
-
-
-
 // rangesOverlap checks if two ranges overlap
 func (f *VisualFormatter) rangesOverlap(start1, end1, start2, end2 int) bool {
 	return !(end1 <= start2 || end2 <= start1)
 }
-
-
 
 // formatValueCompact formats a value in a compact way.
 func formatValueCompact(v interface{}) string {
@@ -1119,59 +1487,4 @@ func formatNodeValue(node *evaluator.EvaluationTree) string {
 func formatNodeResult(node *evaluator.EvaluationTree) string {
 	// Result is always available (bool type)
 	return fmt.Sprintf("%v", node.Result)
-}
-
-// === NEW VISUAL LAYER ARCHITECTURE ===
-
-// createVisualNodes converts ValuePositions to VisualNodes with pipe positions
-func (f *VisualFormatter) createVisualNodes(positions []ValuePosition) []VisualNode {
-	nodes := make([]VisualNode, len(positions))
-
-	for i, pos := range positions {
-		nodes[i] = VisualNode{
-			Position:        pos,
-			EvaluationDepth: pos.Depth,
-			VisualLayer:     -1,            // Not yet assigned
-			PipePosition:    pos.VisualPos, // Fixed pipe position
-			ConflictsWith:   []int{},
-		}
-	}
-
-	return nodes
-}
-
-// detectConflicts builds a conflict map between visual nodes
-func (f *VisualFormatter) detectConflicts(nodes []VisualNode) ConflictMap {
-	conflictMap := ConflictMap{
-		Conflicts: make(map[int][]int),
-	}
-
-	for i, nodeA := range nodes {
-		for j, nodeB := range nodes {
-			if i >= j {
-				continue // Avoid duplicates and self-comparison
-			}
-
-			// Check if the values would overlap if placed at the same layer
-			if f.nodesWouldOverlap(nodeA, nodeB) {
-				conflictMap.Conflicts[i] = append(conflictMap.Conflicts[i], j)
-				conflictMap.Conflicts[j] = append(conflictMap.Conflicts[j], i)
-			}
-		}
-	}
-
-	return conflictMap
-}
-
-// nodesWouldOverlap checks if two nodes would overlap if placed on the same layer
-func (f *VisualFormatter) nodesWouldOverlap(nodeA, nodeB VisualNode) bool {
-	// Calculate the space needed for each value
-	valueAStart := nodeA.PipePosition
-	valueAEnd := valueAStart + visualWidth(nodeA.Position.Value)
-
-	valueBStart := nodeB.PipePosition
-	valueBEnd := valueBStart + visualWidth(nodeB.Position.Value)
-
-	// Check for overlap with minimal spacing (1 character)
-	return !(valueAEnd+1 <= valueBStart || valueBEnd+1 <= valueAStart)
 }
